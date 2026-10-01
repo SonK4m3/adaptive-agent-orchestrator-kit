@@ -1,0 +1,4 @@
+# Two is a capacity limit, not a requirement to spawn two agents.
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 2

@@ -1,0 +1,13 @@
+# Shareable task survey skill
+
+The standalone task-retro-survey skill, at .agents/skills/task-retro-survey/SKILL.md in the source checkout, observes tasks before/during/after and produces retrospective proposals. It does not implement findings or alter environment settings. It works through portable Markdown instructions and local files; clients without a Skill tool can read SKILL.md directly.
+
+Copy .agents/skills/task-retro-survey/ to a teammate's repository at the same path, or their client-supported skill location, excluding existing runs/ and __pycache__/. Keep its .gitignore and scripts/references. Invoke $task-retro-survey in Codex, the client's skill invocation in Claude, or ask another client to read the copied SKILL.md. Actual discovery/automatic hooks depend on the client; cross-client execution has not been tested. The survey must resolve the folder of the invoked skill, not guess from cwd.
+
+Runs are stored under that installed skill's runs/ directory. The skill remains versionable; only generated runs are ignored. The assistant verifies ignore rather than assuming .agents/ is ignored everywhere. Review summary files for sensitive fields before sharing. The portable summary.json schema supports later team aggregation; automated aggregation, dashboards and external upload are not included in this version.
+
+Initial intake: name/type, objective/acceptance, spec readiness, expected time/deadline/usage limit. Tool, model/effort, repo and timestamps are inferred when supported; alias, plan and initial usage are optional questions. Milestone events cover phases, useful agent/tool/skill activity, blockers, retry/rework, scope changes and verification. Final report keeps unknown counters null and distinguishes task/session/account measurements; credit percentages are never converted to tokens or dollars.
+
+Retro categories: navigation, automated checks, coding standards, steering instructions, tool economy, no-ops and information access. Findings need primary evidence and severity; mechanical problems suggest deterministic checks, judgment problems suggest reviewer guidance. Approved changes become separately scoped tasks.
+
+The standalone skill is intentionally independent of the orchestrator installer and its named roles. It is copied separately; it is not part of the orchestrator release ZIP. Python 3.11+ helper is optional; manual mode follows the same files/schema. Run its helper tests with python .agents/skills/task-retro-survey/scripts/test_survey.py.

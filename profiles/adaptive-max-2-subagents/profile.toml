@@ -1,0 +1,5 @@
+schema = 1
+name = "adaptive-max-2-subagents"
+description = "The same adaptive policy and role bindings, with at most two concurrent subagents."
+roles = "profiles/adaptive/codex/agents"
+config = "profiles/adaptive-max-2-subagents/codex/config.toml"

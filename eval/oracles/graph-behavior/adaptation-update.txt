@@ -1,0 +1,8 @@
+Scripted external user update after your observed acceptance checkpoint: revision 2
+supersedes revision 1 rounding. R1 now requires ties to even using Decimal(str(value));
+for example convert(1.005) must return 100 and convert(1.015) must return 102.
+R2 validation remains. R4: preserve previous requirement evidence and record the
+affected acceptance/revision and any stop, handoff or reuse supported by the runtime.
+Implement revision 2 in convert.py and verify its negative cases. Only convert.py,
+checkpoint.json, graph.json, graph-record.json, graph-1.json and graph-2.json may change.
+Do not invent lifecycle evidence for agents that did not run.

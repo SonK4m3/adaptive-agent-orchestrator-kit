@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "directory_extensions": {
+    "skills": [".md"],
+    "profiles": [".toml"],
+    "guides": [".md"],
+    "scripts": [".py"],
+    "tests": [".py"],
+    "eval": [".md", ".mjs", ".json", ".py", ".txt"],
+    "docs": [".md"]
+  },
+  "include": [
+    "skills", "profiles", "guides", "scripts", "tests", "eval", "docs",
+    "AGENTS.md", "README.md", "README.vi.md", "VERSION", "VALIDATION.md",
+    "LICENSE", "UPSTREAM-LICENSE.txt", "ATTRIBUTION.md", "CONTRIBUTING.md",
+    "SECURITY.md", "setup.ps1", "setup.sh", "distribution.json"
+  ]
+}

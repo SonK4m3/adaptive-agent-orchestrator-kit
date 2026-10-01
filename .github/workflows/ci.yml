@@ -20,5 +20,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - run: python eval/validate-kit.py
+      - run: python scripts/build_release.py
+      - run: python scripts/validate_package.py
       - run: python -m unittest discover -s tests -v

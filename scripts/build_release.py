@@ -4,15 +4,13 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-import shutil
-import sys
 import zipfile
+from package_layout import distribution_files
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
 OUT = DIST / "adaptive-agent-orchestrator-kit.zip"
 MANIFEST = ROOT / "release-manifest.json"
-EXCLUDED = {"release-manifest.json", "SHA256SUMS.txt"}
 
 def sha(path: Path) -> str:
     h = hashlib.sha256()
@@ -22,14 +20,7 @@ def sha(path: Path) -> str:
     return h.hexdigest()
 
 def files():
-    return sorted(
-        p for p in ROOT.rglob("*")
-        if p.is_file()
-        and p.name not in EXCLUDED
-        and "__pycache__" not in p.parts
-        and ".git" not in p.parts
-        and "dist" not in p.relative_to(ROOT).parts
-    )
+    return distribution_files(ROOT)
 
 def main() -> int:
     version = (ROOT / "VERSION").read_text(encoding="utf-8").strip()

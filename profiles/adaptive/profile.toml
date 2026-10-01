@@ -1,0 +1,5 @@
+schema = 1
+name = "adaptive"
+description = "Adaptive routing with up to four concurrent subagents; preserve the user's root model."
+roles = "profiles/adaptive/codex/agents"
+config = "profiles/adaptive/codex/config.toml"

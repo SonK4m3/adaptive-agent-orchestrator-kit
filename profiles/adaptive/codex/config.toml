@@ -1,0 +1,5 @@
+# Resource preset only. Task evidence selects topology; zero agents is valid.
+# Root model, permissions, approvals and billing limits remain user-owned.
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 4

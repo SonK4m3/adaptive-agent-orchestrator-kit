@@ -11,12 +11,29 @@ import shutil
 import sys
 import stat
 import tempfile
+import tomllib
+import re
+from package_layout import distribution_files
 from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "release-manifest.json"
 STATE_DIR = ".adaptive-agent-orchestrator"
 SKILLS = ("adaptive-agent-orchestrator", "astra-orchestrator")
+PROFILES = ("adaptive", "adaptive-max-2-subagents")
+
+
+def profile_data(name: str) -> dict:
+    if name not in PROFILES:
+        raise RuntimeError(f"Unknown profile: {name}")
+    data = tomllib.loads((ROOT / "profiles" / name / "profile.toml").read_text(encoding="utf-8"))
+    if data.get("schema") != 1 or data.get("name") != name:
+        raise RuntimeError(f"Invalid profile: {name}")
+    for key in ("roles", "config"):
+        path = (ROOT / data[key]).resolve()
+        if ROOT.resolve() not in path.parents:
+            raise RuntimeError(f"Profile path escapes package: {key}")
+    return data
 
 
 def digest(path: Path) -> str:
@@ -50,15 +67,7 @@ def validate_release() -> None:
     if data.get("schema") != 1 or not isinstance(data.get("files"), dict):
         raise RuntimeError("Unsupported or malformed release manifest")
     expected = set(data["files"])
-    actual = {
-        p.relative_to(root).as_posix()
-        for p in root.rglob("*")
-        if p.is_file()
-        and p.resolve() != MANIFEST.resolve()
-        and "__pycache__" not in p.parts
-        and ".git" not in p.parts
-        and "dist" not in p.relative_to(root).parts
-    }
+    actual = {p.relative_to(root).as_posix() for p in distribution_files(root)}
     if expected != actual:
         raise RuntimeError(f"Release file set differs (missing={sorted(expected-actual)}, unlisted={sorted(actual-expected)})")
     for rel, checksum in data["files"].items():
@@ -92,7 +101,10 @@ def codex_home(arg: str | None) -> Path:
 
 def ensure_safe_path(base: Path, path: Path) -> None:
     """Reject links/junctions on the path from the selected Codex home to a managed item."""
+    if '..' in path.parts:
+        raise RuntimeError(f"Managed path contains traversal: {path}")
     try:
+        path.resolve(strict=False).relative_to(base.resolve(strict=False))
         rel = path.absolute().relative_to(base.absolute())
     except ValueError as exc:
         raise RuntimeError(f"Managed path escapes CODEX_HOME: {path}") from exc
@@ -104,17 +116,32 @@ def ensure_safe_path(base: Path, path: Path) -> None:
             assert_plain_path(cursor)
 
 
+def managed_path(rel_text: str) -> Path:
+    if not isinstance(rel_text, str):
+        raise RuntimeError('Invalid managed component path')
+    rel = Path(rel_text)
+    allowed = {f'skills/{name}' for name in SKILLS} | {f'{name}.config.toml' for name in PROFILES}
+    normalized = rel.as_posix()
+    role = re.fullmatch(r'agents/ao_[A-Za-z0-9_]+\.toml', normalized)
+    if rel.is_absolute() or '..' in rel.parts or (normalized not in allowed and not role):
+        raise RuntimeError(f'Unsafe managed component: {rel_text}')
+    return rel
+
+
 def stamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
 def components(args: argparse.Namespace) -> list[tuple[Path, Path]]:
     result: list[tuple[Path, Path]] = []
+    profile = profile_data(getattr(args, "profile", "adaptive"))
     if args.parts in ("all", "skills"):
         names = SKILLS if args.skill == "both" else (args.skill,)
-        result.extend((ROOT / name, Path("skills") / name) for name in names)
+        result.extend((ROOT / "skills" / name, Path("skills") / name) for name in names)
     if args.parts in ("all", "roles"):
-        result.extend((p, Path("agents") / p.name) for p in sorted((ROOT / "roles").glob("ao_*.toml")))
+        result.extend((p, Path("agents") / p.name) for p in sorted((ROOT / profile["roles"]).glob("ao_*.toml")))
+    if getattr(args, "with_profile_config", False):
+        result.append((ROOT / profile["config"], Path(f"{profile['name']}.config.toml")))
     return result
 
 
@@ -126,6 +153,10 @@ def load_state(target: Path) -> dict:
     data = json.loads(path.read_text(encoding="utf-8"))
     if data.get("schema") != 1 or not isinstance(data.get("components"), dict):
         raise RuntimeError(f"Invalid install receipt: {path}")
+    for rel, checksum in data['components'].items():
+        managed_path(rel)
+        if not isinstance(checksum, str) or not re.fullmatch(r'[0-9a-f]{64}', checksum):
+            raise RuntimeError(f'Invalid managed checksum: {rel}')
     return data
 
 
@@ -141,7 +172,7 @@ def install(args: argparse.Namespace) -> None:
     target = codex_home(args.target)
     target.mkdir(parents=True, exist_ok=True)
     items = components(args)
-    if not items or len(list((ROOT / "roles").glob("ao_*.toml"))) != 8:
+    if not items or len(list((ROOT / profile_data(getattr(args, "profile", "adaptive"))["roles"]).glob("ao_*.toml"))) != 8:
         raise RuntimeError("Expected two bundled skills and exactly eight ao_*.toml roles")
     state = load_state(target)
     # Preflight all conflicts before making any changes.
@@ -187,10 +218,12 @@ def install(args: argparse.Namespace) -> None:
                 rel_text = dest.relative_to(target).as_posix()
                 backed_up.append(rel_text)
                 backup_ownership[rel_text] = previous
+            # Register rollback before removal/rename, including rename failure.
+            moved.append((dest, old_backup, True))
+            if dest.exists():
                 shutil.rmtree(dest) if dest.is_dir() else dest.unlink()
             dest.parent.mkdir(parents=True, exist_ok=True)
             os.replace(staged_path, dest)
-            moved.append((dest, old_backup, True))
             state["components"][dest.relative_to(target).as_posix()] = checksum
         if backup_root.exists():
             write_json(backup_root / "receipt.json", {"schema": 1, "id": backup_id, "components": backed_up, "managed_before": backup_ownership})
@@ -206,8 +239,7 @@ def install(args: argparse.Namespace) -> None:
             if dest.exists():
                 shutil.rmtree(dest) if dest.is_dir() else dest.unlink()
             if old_backup is not None:
-                old_backup.parent.mkdir(parents=True, exist_ok=True)
-                os.replace(old_backup, dest)
+                restore_copy(old_backup, dest)
         raise
     finally:
         shutil.rmtree(transaction, ignore_errors=True)
@@ -232,37 +264,53 @@ def doctor(args: argparse.Namespace) -> None:
     print("Codex runtime discovery/model execution is not tested by this offline check.")
 
 
+def restore_copy(saved: Path, dest: Path) -> None:
+    """Restore a fully preflighted copy without relying on rename rollback."""
+    if dest.exists():
+        shutil.rmtree(dest) if dest.is_dir() else dest.unlink()
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(saved, dest) if saved.is_dir() else shutil.copy2(saved, dest)
+
+
 def uninstall(args: argparse.Namespace) -> None:
     target = codex_home(args.target)
     state = load_state(target)
     managed_before = dict(state["components"])
-    if not state["components"]:
+    if not managed_before:
         raise RuntimeError("No managed installation receipt found; refusing to guess what to remove")
+    items = []
     mismatches = []
-    for rel, expected in state["components"].items():
-        p = target / rel
+    for rel, expected in managed_before.items():
+        p = target / managed_path(rel)
         ensure_safe_path(target, p)
-        if p.exists() and tree_hash(p) != expected:
-            mismatches.append(rel)
+        if p.exists():
+            safe_tree(p)
+            if tree_hash(p) != expected:
+                mismatches.append(rel)
+            items.append((rel, p))
     if mismatches and not args.force:
         raise RuntimeError("Modified installed components; use --force to remove after backup: " + ", ".join(mismatches))
     backup_id = f"uninstall-{stamp()}-{os.urandom(4).hex()}"
     backup_root = target / ".adaptive-agent-orchestrator-backups" / backup_id
     ensure_safe_path(target, backup_root)
-    ensure_safe_path(target, backup_root)
-    for rel in list(state["components"]):
-        p = target / rel
-        if not p.exists():
-            continue
-        safe_tree(p)
+    # Finish ALL backups and their receipt before deleting any component.
+    for rel, p in items:
         saved = backup_root / rel
-        ensure_safe_path(target, saved)
         saved.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(p, saved) if p.is_dir() else shutil.copy2(p, saved)
-        shutil.rmtree(p) if p.is_dir() else p.unlink()
-    write_json(backup_root / "receipt.json", {"schema": 1, "id": backup_id, "components": list(state["components"]), "managed_before": managed_before})
-    state["components"] = {}
-    write_json(target / STATE_DIR / "install.json", state)
+        if tree_hash(saved) != tree_hash(p):
+            raise RuntimeError(f"Backup verification failed: {rel}")
+    write_json(backup_root / "receipt.json", {"schema": 1, "id": backup_id, "components": [rel for rel, _ in items], "managed_before": managed_before})
+    changed = []
+    try:
+        for rel, p in items:
+            changed.append((rel, p))
+            shutil.rmtree(p) if p.is_dir() else p.unlink()
+        write_json(target / STATE_DIR / "install.json", {"schema": 1, "components": {}})
+    except Exception:
+        for rel, p in reversed(changed):
+            restore_copy(backup_root / rel, p)
+        raise
     print(f"Removed managed components. Recoverable backup: {backup_root}")
     print("Codex config.toml and unrelated skills/agents were left untouched.")
 
@@ -283,16 +331,21 @@ def restore(args: argparse.Namespace) -> None:
     managed_before = receipt.get("managed_before", {})
     if not isinstance(managed_before, dict):
         raise RuntimeError("Invalid managed-state backup metadata")
+    for rel_text, checksum in managed_before.items():
+        managed_path(rel_text)
+        if checksum is not None and (not isinstance(checksum, str) or not re.fullmatch(r'[0-9a-f]{64}', checksum)):
+            raise RuntimeError("Invalid backup ownership checksum")
     state = load_state(target)
-    safety_id = f"pre-restore-{stamp()}-{os.urandom(4).hex()}"
-    safety_root = target / ".adaptive-agent-orchestrator-backups" / safety_id
-    ensure_safe_path(target, safety_root)
-    restored: list[str] = []
+    items = []
+    seen = set()
+    # Validate EVERY item before staging or changing any destination.
     for rel_text in receipt["components"]:
-        rel = Path(rel_text)
-        if rel.is_absolute() or not rel.parts or ".." in rel.parts or rel.parts[0] not in ("skills", "agents"):
-            raise RuntimeError(f"Unsafe component path in backup receipt: {rel_text}")
+        rel = managed_path(rel_text)
+        if rel.as_posix() in seen:
+            raise RuntimeError("Duplicate backup component")
+        seen.add(rel.as_posix())
         saved = backup_root / rel
+        ensure_safe_path(target, saved)
         if not saved.exists():
             raise RuntimeError(f"Backup component is missing: {saved}")
         safe_tree(saved)
@@ -300,28 +353,57 @@ def restore(args: argparse.Namespace) -> None:
         ensure_safe_path(target, dest)
         if dest.exists():
             safe_tree(dest)
-            current_save = safety_root / rel
-            current_save.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(dest, current_save) if dest.is_dir() else shutil.copy2(dest, current_save)
-        staged = target / f".ao-restore-{os.urandom(5).hex()}"
-        shutil.copytree(saved, staged) if saved.is_dir() else shutil.copy2(saved, staged)
-        if dest.exists():
-            shutil.rmtree(dest) if dest.is_dir() else dest.unlink()
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(staged, dest)
-        rel_key = rel.as_posix()
-        if rel_key in managed_before and managed_before[rel_key] is None:
-            state["components"].pop(rel_key, None)
-        elif rel_key in managed_before:
-            state["components"][rel_key] = managed_before[rel_key]
-        else:
-            state["components"][rel_key] = tree_hash(dest)
-        restored.append(rel.as_posix())
-    if safety_root.exists():
-        write_json(safety_root / "receipt.json", {"schema": 1, "id": safety_id, "components": restored})
-    write_json(target / STATE_DIR / "install.json", state)
-    print(f"Restored {len(restored)} component(s) from {backup_id}")
-    if safety_root.exists():
+        items.append((rel.as_posix(), saved, dest))
+    safety_id = f"pre-restore-{stamp()}-{os.urandom(4).hex()}"
+    safety_root = target / ".adaptive-agent-orchestrator-backups" / safety_id
+    ensure_safe_path(target, safety_root)
+    transaction = Path(tempfile.mkdtemp(prefix=".ao-restore-", dir=target))
+    changed = []
+    staged = []
+    safety_components = []
+    try:
+        # Stage replacements and complete current-content backups before commit.
+        for rel, saved, dest in items:
+            staged_path = transaction / rel
+            staged_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(saved, staged_path) if saved.is_dir() else shutil.copy2(saved, staged_path)
+            if tree_hash(saved) != tree_hash(staged_path):
+                raise RuntimeError(f"Restore staging verification failed: {rel}")
+            current_save = None
+            if dest.exists():
+                current_save = safety_root / rel
+                current_save.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(dest, current_save) if dest.is_dir() else shutil.copy2(dest, current_save)
+                if tree_hash(current_save) != tree_hash(dest):
+                    raise RuntimeError(f"Safety backup verification failed: {rel}")
+                safety_components.append(rel)
+            staged.append((rel, staged_path, dest, current_save))
+        if safety_components:
+            write_json(safety_root / "receipt.json", {"schema": 1, "id": safety_id, "components": safety_components, "managed_before": {rel: state["components"].get(rel) for rel in safety_components}})
+        for rel, staged_path, dest, current_save in staged:
+            changed.append((dest, current_save))
+            if dest.exists():
+                shutil.rmtree(dest) if dest.is_dir() else dest.unlink()
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(staged_path, dest)
+            if rel in managed_before and managed_before[rel] is None:
+                state["components"].pop(rel, None)
+            elif rel in managed_before:
+                state["components"][rel] = managed_before[rel]
+            else:
+                state["components"][rel] = tree_hash(dest)
+        write_json(target / STATE_DIR / "install.json", state)
+    except Exception:
+        for dest, current_save in reversed(changed):
+            if current_save is not None:
+                restore_copy(current_save, dest)
+            elif dest.exists():
+                shutil.rmtree(dest) if dest.is_dir() else dest.unlink()
+        raise
+    finally:
+        shutil.rmtree(transaction, ignore_errors=True)
+    print(f"Restored {len(items)} component(s) from {backup_id}")
+    if safety_components:
         print(f"Previous contents preserved: {safety_root}")
 
 
@@ -332,6 +414,8 @@ def parser() -> argparse.ArgumentParser:
         q = sub.add_parser(name)
         q.add_argument("--target", help="CODEX_HOME directory (defaults to CODEX_HOME or ~/.codex)")
         if name == "install":
+            q.add_argument("--profile", choices=PROFILES, default="adaptive")
+            q.add_argument("--with-profile-config", action="store_true", help="Install a separate named runtime preset; activate with codex -p NAME in a new session")
             q.add_argument("--skill", choices=("both", *SKILLS), default="both")
             q.add_argument("--parts", choices=("all", "skills", "roles"), default="all")
             q.add_argument("--replace", action="store_true", help="Back up and replace differing managed destinations")

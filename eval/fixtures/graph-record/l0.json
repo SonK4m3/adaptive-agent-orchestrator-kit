@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "task_id": "fixture",
+  "revision": 1,
+  "path_case_sensitive": false,
+  "change": null,
+  "nodes": [
+    {
+      "id": "main",
+      "role": "root",
+      "expertise": "fixture implementation",
+      "output": "criterion artifact",
+      "agent_id": "root",
+      "requirement_ids": [
+        "R1"
+      ],
+      "read_paths": [
+        "TASK.md"
+      ],
+      "write_paths": [
+        "label.txt"
+      ],
+      "status": "running",
+      "evidence": []
+    }
+  ],
+  "edges": [],
+  "criteria": [
+    {
+      "id": "R1",
+      "outcome": "fixture acceptance",
+      "workstream_id": "main",
+      "implementation_owner": "root",
+      "verification_owner": "root",
+      "verification_method": "external oracle",
+      "independent": false,
+      "independence_reason": "bounded deterministic check",
+      "status": "pending",
+      "evidence": []
+    }
+  ]
+}

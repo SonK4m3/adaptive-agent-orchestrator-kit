@@ -1,5 +1,37 @@
 # Validation record — 2026-10-01, Asia/Saigon
 
+## Consumer project skill routing — 2026-10-02
+
+Interactive setup now registers selected installed skills in an explicitly chosen
+project AGENTS.md by appending a marked block, never rewriting original bytes.
+The standalone register_project.py helper supports additional projects.
+Windows suite: 88 tests, 87 passed and one symlink-creation test skipped because
+this host cannot create symlinks. Tests include original-byte preservation,
+UTF-8/UTF-16 BOM and CRLF handling, idempotency, edited/malformed block refusal,
+setup success/failure/skip paths and extracted-ZIP registration/uninstall lifecycle.
+Package validator passes; no model execution. macOS/Linux and actual automatic
+skill invocation remain unverified. See [registration usage](guides/INSTALLATION.md).
+
+## Credential-free CLI preflight — 2026-10-02
+
+Preflight gate and filtered evidence added; 76 Windows tests pass and package
+validator passes. Evidence-only local run blocked on missing explicit native
+sandbox selection, before authentication/inference; global config unchanged.
+Explicit sandbox execution and model retries remain unrun. See
+[preflight evidence and limits](docs/validation/CLI-PREFLIGHT-2026-10-02.md).
+
+## Agent graph / runtime pilot
+
+Graph schema, workstream/verification ownership, revision and confirmed handoff checks are implemented in both portable skills. Offline Windows integration checkpoint: 70 tests pass, including package lifecycle, graph/navigation regressions, mocked harness and real local process-job containment. One worker CLI probe failed the artifact check and reported access-policy/tool-visibility blockers; reviewer and four autonomous runs remain unrun. No model/effort change or savings claim. See [implementation evidence](docs/validation/AGENT-GRAPH-IMPLEMENTATION-2026-10-01.md) and [dispatch attempt](docs/validation/AGENT-DISPATCH-2026-10-01.md). Later package checks are structural only; earlier evidence below is historical.
+
+## Layout migration v2.2.0
+
+Upstream-style profiles/guides/tooling organization now preserves the adaptive policy and both entrypoints. Windows package validator and 14 Python tests pass, including extracted-ZIP lifecycle, optional named presets, standalone aliases and injected failure rollback. The relocated oracle passes 8/8 against an earlier implemented fixture. These are migration checks, not fresh topology/model benchmarks. See [migration evidence and limits](docs/validation/LAYOUT-MIGRATION-2.2.0.md). Earlier entries below remain historical records.
+
+## Adaptive topology experiment
+
+Four live CLI scenario runs with a 600-second cap each completed below the cap. All stayed within scratch-file scope. Root-only and independent behavior checks passed; authorization matrix passed; rounding ambiguity was reported as unresolved. All four chose root-only, so delegation, independent reviewer dispatch and agent reuse remain unverified. See [reviewed evidence and diagnostic rubric](docs/validation/ORCHESTRATION-RUN-2026-10-01.md). Requested model/effort were fixed; effective serving was not independently confirmed. The runner's subsequent Git-isolation correction has not received a live rerun.
+
 ## Distribution packaging checks
 
 - Windows / Python 3.14.5: package structure validator passed; five installer unit tests passed (fresh install, unrelated-file/config preservation, conflict refusal, replace backup and restore, uninstall and restore, modified-component force gate, tamper detection). Python byte-compilation passed.

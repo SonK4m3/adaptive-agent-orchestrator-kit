@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "task_id": "fixture",
+  "revision": 1,
+  "path_case_sensitive": false,
+  "change": null,
+  "nodes": [
+    {
+      "id": "a",
+      "role": "worker",
+      "expertise": "fixture implementation",
+      "output": "criterion artifact",
+      "agent_id": "agent-a",
+      "requirement_ids": [
+        "R1"
+      ],
+      "read_paths": [
+        "TASK.md"
+      ],
+      "write_paths": [
+        "duration.mjs"
+      ],
+      "status": "running",
+      "evidence": []
+    },
+    {
+      "id": "b",
+      "role": "worker",
+      "expertise": "fixture implementation",
+      "output": "criterion artifact",
+      "agent_id": "agent-b",
+      "requirement_ids": [
+        "R2"
+      ],
+      "read_paths": [
+        "TASK.md"
+      ],
+      "write_paths": [
+        "grouping.mjs"
+      ],
+      "status": "running",
+      "evidence": []
+    }
+  ],
+  "edges": [],
+  "criteria": [
+    {
+      "id": "R1",
+      "outcome": "fixture acceptance",
+      "workstream_id": "a",
+      "implementation_owner": "agent-a",
+      "verification_owner": "root",
+      "verification_method": "external oracle",
+      "independent": true,
+      "independence_reason": "separate assessment",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": "R2",
+      "outcome": "fixture acceptance",
+      "workstream_id": "b",
+      "implementation_owner": "agent-b",
+      "verification_owner": "root",
+      "verification_method": "external oracle",
+      "independent": true,
+      "independence_reason": "separate assessment",
+      "status": "pending",
+      "evidence": []
+    }
+  ]
+}

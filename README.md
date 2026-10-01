@@ -11,11 +11,32 @@ Diagrams in this repository are reference patterns, not executable workflows. Ac
 - Two self-contained skill entrypoints: `adaptive-agent-orchestrator` and `astra-orchestrator`.
 - Ten Mermaid diagrams for routing, root-only work, focused delegation, parallel slices, staged high-risk work, debugging, deadlines, economy, scope changes, and optional Jev-assisted routing.
 - Eight optional, namespaced agent definitions: `ao_explorer`, `ao_researcher`, `ao_worker`, `ao_worker_complex`, `ao_worker_critical`, `ao_tester`, `ao_reviewer`, and `ao_design_advisor`.
+- Two resource profiles: `adaptive` (capacity 4) and `adaptive-max-2-subagents` (capacity 2). Both retain adaptive topology and the existing role/model bindings.
 - Task, delegation, and run-record templates; model/deadline guidance; evidence and evaluation references; and a small coding fixture.
+- Compact [graph snapshots](skills/adaptive-agent-orchestrator/assets/graph-record.md), structural ownership/handoff checks and an isolated experimental harness. [Current runtime gate and coverage](docs/validation/AGENT-GRAPH-IMPLEMENTATION-2026-10-01.md) remain explicit.
 - Interactive Windows, macOS, and Linux setup wrappers backed by a Python 3.11+ standard-library installer.
 - Package integrity checks, installation doctor, recoverable replacement/uninstall, and a SHA-256 release checksum.
 
 The two skills have equivalent orchestration guidance. Install either one or both. Agent role files are optional: the skill remains usable with the default Codex subagent types if the named roles are not installed or unavailable.
+
+## Repository layout
+
+```text
+profiles/                 # Resource presets and shared namespaced roles
+  adaptive/codex/agents/
+  adaptive-max-2-subagents/
+skills/                   # Both self-contained skill entrypoints
+guides/                   # Install, profiles, policy and upstream comparison
+scripts/                  # Setup, lifecycle, build, validation and live-run tooling
+tests/                    # Tooling and extracted-release lifecycle tests
+eval/                     # Scenarios, rubrics, fixtures and external oracles
+docs/validation/          # Reviewed behavioral evidence
+AGENTS.md
+setup.ps1
+setup.sh
+```
+
+This organization follows the upstream profile/guide/tooling separation. Shared skills and role sources avoid duplicating policy across resource profiles. See [what we preserve and change](guides/UPSTREAM-COMPARISON.md) and [profile selection](guides/PROFILES.md).
 
 ## Orchestration patterns
 
@@ -46,7 +67,7 @@ flowchart TD
 | L2 — Collaborative | Root plus up to two independent agents | Work has separate outputs and safe ownership; agree shared interfaces first. |
 | L3 — Staged | Root coordinates only the necessary specialists | Multiple workstreams, material risk, or independent testing/review justify staged orchestration. No fixed role count is required. |
 
-The skill also includes separate diagrams for common cases, such as tracing competing bug hypotheses with one fix owner, preserving a verification window under a deadline, or adapting after a scope change. See [`astra-orchestrator/references/patterns.md`](astra-orchestrator/references/patterns.md).
+The skill also includes separate diagrams for common cases, such as tracing competing bug hypotheses with one fix owner, preserving a verification window under a deadline, or adapting after a scope change. See [`skills/astra-orchestrator/references/patterns.md`](skills/astra-orchestrator/references/patterns.md).
 
 ## Install
 
@@ -84,18 +105,28 @@ python3 scripts/setup.py
 
 ### Setup prompts
 
-The installer asks which skill entrypoint(s) to install, whether to install the eight optional agent roles, and which Codex home to target. Press Enter at the path prompt to use `$CODEX_HOME`, if set, or `~/.codex` otherwise. The installer validates the package, checks for conflicts, and runs an offline integrity check after installation.
+The installer asks for a resource profile, skill entrypoint(s), optional roles, an optional named runtime preset, the Codex home, and a project directory for skill routing. Named preset installation defaults to No. Press Enter at the Codex-home prompt to use `$CODEX_HOME`, if set, or `~/.codex` otherwise. At the separate project prompt, Enter skips registration. The installer validates the package, checks for conflicts, and runs an offline integrity check after installation.
 
-On a different existing component, setup asks before replacing it. Replacement creates a recoverable backup. The installer does not edit `config.toml`, alter another skill or agent, or configure a project profile.
+On a different existing component, setup asks before replacing it. Replacement creates a recoverable backup. The installer does not edit base `config.toml`, another skill/agent, or project configuration. If a project is selected, setup appends a clearly marked routing block to its `AGENTS.md`, preserving existing content; identical reruns do nothing and changed blocks are never overwritten. An optional named preset is installed as a separate file and only activated in a new CLI session via `codex -p NAME`.
 
 To install non-interactively, for example:
 
 ```sh
 python3 scripts/manage.py install --skill both --parts all
 python3 scripts/manage.py doctor
+python3 scripts/register_project.py --project /path/to/project --skill both
 ```
 
-Useful options include `--skill astra-orchestrator`, `--skill adaptive-agent-orchestrator`, `--parts skills`, and `--target PATH`. See [`docs/INSTALLATION.md`](docs/INSTALLATION.md) for details.
+Useful options include `--skill astra-orchestrator`, `--skill adaptive-agent-orchestrator`, `--parts skills`, and `--target PATH`. See [`guides/INSTALLATION.md`](guides/INSTALLATION.md) for details.
+
+To opt into the lower-capacity preset:
+
+```sh
+python3 scripts/manage.py install --profile adaptive-max-2-subagents --with-profile-config
+codex -p adaptive-max-2-subagents
+```
+
+Profile capacity is an upper limit; a bounded task can still use zero agents. Root model and approvals remain your settings. Named roles retain their configured model/effort. Model availability and actual serving must be checked in your runtime.
 
 ## Installed files
 
@@ -157,21 +188,23 @@ The bundled roles have namespaced IDs to reduce collisions with existing agents.
 | `ao_reviewer` | Independently inspect a material change | Read-only review |
 | `ao_design_advisor` | Analyze a bounded architecture trade-off | Read-only advice; root makes the decision |
 
-The configured models can be inspected in [`roles/`](roles/). Confirm model and subagent availability in the actual Codex account/runtime. The kit does not change the active root model, runtime concurrency cap, permissions, or hard billing limits. It does not claim measured token or latency savings.
+The configured models can be inspected in [`profiles/adaptive/codex/agents/`](profiles/adaptive/codex/agents/). Confirm model and subagent availability in the actual Codex account/runtime. Activating an optional resource preset requests its concurrency cap in a new session; it does not change the current session, root model, permissions, or billing limits. No measured token or latency savings are claimed.
 
 ## Verify and test
+
+For topology and delegation reliability, use [the scenario rubric](eval/scenarios/orchestration.md). Run `python scripts/run_orchestration.py --model MODEL --effort EFFORT` to capture four real CLI runs with a 600-second cap per run. The runner uses local scratch workspaces and unrestricted shell execution with no interactive approvals; run only where that execution is authorized. Raw evidence goes to ignored `dist/`. Scope and behavioral checks are automated; contracts, actual dispatch, adaptation and claim accuracy require trace review. One run per scenario is initial evidence, not a reliability estimate.
 
 Check the package structure and run the installer tests:
 
 ```sh
-python3 eval/validate-kit.py
+python3 scripts/validate_package.py
 python3 -m unittest discover -s tests -v
 ```
 
-To exercise the coding fixture, copy `eval/fixture` into a scratch project, ask Codex to implement its `TASK.md` using the skill, set `ORCHESTRATOR_FIXTURE` to that copy, and run:
+To exercise the coding fixture, copy `eval/fixtures/independent` into a scratch project, ask Codex to implement its `TASK.md` using the skill, set `ORCHESTRATOR_FIXTURE` to that copy, and run:
 
 ```sh
-node --test eval/acceptance.test.mjs
+node --test eval/oracles/independent.test.mjs
 ```
 
 The installer `doctor` checks package and installed-file integrity offline. It cannot prove that a running Codex session discovered the skills, selected a particular role, or executed a configured model. Restart Codex and verify those runtime behaviors separately.
@@ -200,15 +233,17 @@ Jev-assisted routing is documented as an optional architecture pattern only. Thi
 
 ## Repository guides
 
+For team measurement before/during/after tasks, the standalone `task-retro-survey` skill is available in the source checkout at `.agents/skills/task-retro-survey/`. It stores ignored local run records and proposes evidence-backed environment improvements. Copy it separately for teammates; it is independent of the orchestrator installer. See [survey usage and sharing](guides/TASK-RETRO-SURVEY.md).
+
 - [Vietnamese README](README.vi.md)
-- [Installation details](docs/INSTALLATION.md)
-- [Patterns and diagrams](astra-orchestrator/references/patterns.md)
-- [Roles and assignment boundaries](astra-orchestrator/references/roles.md)
-- [Model and deadline policy](astra-orchestrator/references/model-deadline.md)
+- [Installation details](guides/INSTALLATION.md)
+- [Patterns and diagrams](skills/astra-orchestrator/references/patterns.md)
+- [Roles and assignment boundaries](skills/astra-orchestrator/references/roles.md)
+- [Model and deadline policy](skills/astra-orchestrator/references/model-deadline.md)
 - [Validation results and limitations](VALIDATION.md)
-- [Scenario checklist](test-scenarios.md)
+- [Scenario checklist](eval/scenarios/catalog.md)
 - [Attribution](ATTRIBUTION.md)
-- [Release process](docs/RELEASING.md)
+- [Release process](guides/RELEASING.md)
 
 ## License
 

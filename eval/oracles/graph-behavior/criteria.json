@@ -1,0 +1,6 @@
+{
+  "root-only": {"allowed": ["label.txt", "graph.json", "graph-record.json", "graph-1.json", "graph-2.json"]},
+  "independent": {"allowed": ["duration.py", "grouping.py", "graph.json", "graph-record.json", "graph-1.json", "graph-2.json"]},
+  "verification": {"allowed": ["auth.py", "graph.json", "graph-record.json", "graph-1.json", "graph-2.json"]},
+  "adaptation": {"allowed": ["convert.py", "checkpoint.json", "graph.json", "graph-record.json", "graph-1.json", "graph-2.json"]}
+}

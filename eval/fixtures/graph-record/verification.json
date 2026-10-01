@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "task_id": "fixture",
+  "revision": 1,
+  "path_case_sensitive": false,
+  "change": null,
+  "nodes": [
+    {
+      "id": "impl",
+      "role": "worker",
+      "expertise": "fixture implementation",
+      "output": "criterion artifact",
+      "agent_id": "agent-a",
+      "requirement_ids": [
+        "R1"
+      ],
+      "read_paths": [
+        "TASK.md"
+      ],
+      "write_paths": [
+        "auth.mjs"
+      ],
+      "status": "running",
+      "evidence": []
+    },
+    {
+      "id": "review",
+      "role": "reviewer",
+      "expertise": "authorization invariants",
+      "output": "independent assessment",
+      "agent_id": "agent-r",
+      "requirement_ids": [
+        "R1"
+      ],
+      "read_paths": [
+        "TASK.md"
+      ],
+      "write_paths": [],
+      "status": "running",
+      "evidence": []
+    }
+  ],
+  "edges": [
+    {
+      "from": "impl",
+      "to": "review",
+      "kind": "verification"
+    }
+  ],
+  "criteria": [
+    {
+      "id": "R1",
+      "outcome": "fixture acceptance",
+      "workstream_id": "impl",
+      "implementation_owner": "agent-a",
+      "verification_owner": "agent-r",
+      "verification_method": "external oracle",
+      "independent": true,
+      "independence_reason": "separate assessment",
+      "status": "pending",
+      "evidence": []
+    }
+  ]
+}
