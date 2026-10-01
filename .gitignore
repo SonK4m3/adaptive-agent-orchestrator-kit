@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+adaptive-agent-orchestrator-kit.zip
+adaptive-agent-orchestrator-kit.zip.sha256
+dist/
