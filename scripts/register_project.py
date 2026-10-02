@@ -27,20 +27,21 @@ def plain_chain(path: Path) -> None:
         cursor = cursor.parent
 
 
-def routing_block(home: Path, skill: str) -> str:
+def routing_block(home: Path, skill: str, project: Path | None = None) -> str:
     names = SKILLS if skill == "both" else (skill,)
     if any(name not in SKILLS for name in names):
         raise RuntimeError("Unknown skill selection")
     links = []
     for name in names:
-        source = home / "skills" / name / "SKILL.md"
+        source = (project / ".agents" if project else home) / "skills" / name / "SKILL.md"
         plain_chain(source)
         if not source.is_file():
             raise RuntimeError(f"Selected installed skill is missing: {name}")
-        links.append(f"[{name}]({quote(source.as_posix(), safe='/:')})")
+        link = source.relative_to(project).as_posix() if project else source.as_posix()
+        links.append(f"[{name}]({quote(link, safe='/:')})")
     selected = " or ".join(links)
     return "\n".join((START, "## Installed adaptive orchestration skill", "",
-        f"Consider {selected} when delegation is requested or independent outputs, context load or verification risk justify coordination. Read the linked SKILL.md before using it; these paths refer to the installed skills, not this project.", "",
+        f"Consider {selected} when delegation is requested or independent outputs, context load or verification risk justify coordination. Read the linked SKILL.md before using it; " + ("these paths refer to project-local installed skills." if project else "these paths refer to the installed skills, not this project."), "",
         "The two entrypoint names share one policy: select one, never load both by default. Skill selection does not require subagents. Keep small or tightly coupled tasks root-only; no graph, contract file or separate report is mandatory. Still state changes, actual checks and material limitations briefly.", "",
         "When delegating, root explains the topology and each agent's concrete output and scope. Keep one writer per path and use independent verification where risk warrants it. Create graph records only for dependency/ownership/handoff tracking or a requested audit; read only relevant supporting resources.", "",
         "These instructions do not override project constraints or authorize external writes, configuration changes or benchmarks. Review/audit remains read-only unless implementation is requested. Survey/retro is separate and is not automatically enabled.", END))
@@ -57,7 +58,7 @@ def decode_existing(raw: bytes) -> tuple[str, str]:
     return text, "utf-8"
 
 
-def register_project(project: Path, home: Path, skill: str = "both") -> dict:
+def register_project(project: Path, home: Path, skill: str = "both", *, project_skills: bool = False) -> dict:
     project = project.expanduser().absolute()
     plain_chain(project)
     if project == Path(project.anchor) or not project.is_dir():
@@ -66,7 +67,7 @@ def register_project(project: Path, home: Path, skill: str = "both") -> dict:
     plain_chain(path)
     if path.exists() and not path.is_file():
         raise RuntimeError("AGENTS.md is not a regular file")
-    block = routing_block(home, skill)
+    block = routing_block(home, skill, project if project_skills else None)
     lock = project / ".AGENTS.md.orchestrator.lock"
     # Exclusive cooperating-installer lock; a stale lock must be inspected.
     try:
@@ -105,11 +106,14 @@ def register_project(project: Path, home: Path, skill: str = "both") -> dict:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project", required=True, type=Path)
-    parser.add_argument("--target", help="Installed Codex home (same as manage.py --target)")
+    location = parser.add_mutually_exclusive_group()
+    location.add_argument("--target", help="Installed Codex home (same as manage.py --target)")
+    location.add_argument("--project-skills", action="store_true", help="Link project .agents/skills with portable relative paths; do not use Codex home")
     parser.add_argument("--skill", choices=(*SKILLS, "both"), default="both")
     args = parser.parse_args(argv)
     try:
-        result = register_project(args.project, codex_home(args.target), args.skill)
+        home = args.project.absolute() / ".codex" if args.project_skills else codex_home(args.target)
+        result = register_project(args.project, home, args.skill, project_skills=args.project_skills)
         print(f"Routing {result['status']}: {result['path']} (existing content preserved)")
         return 0
     except (OSError, UnicodeError, RuntimeError) as exc:

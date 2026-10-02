@@ -13,6 +13,6 @@
     "skills", "profiles", "guides", "scripts", "tests", "eval", "docs",
     "AGENTS.md", "README.md", "README.vi.md", "VERSION", "VALIDATION.md",
     "LICENSE", "UPSTREAM-LICENSE.txt", "ATTRIBUTION.md", "CONTRIBUTING.md",
-    "SECURITY.md", "setup.ps1", "setup.sh", "distribution.json"
+    "SECURITY.md", "setup.ps1", "setup.sh", "update.ps1", "update.sh", "distribution.json"
   ]
 }

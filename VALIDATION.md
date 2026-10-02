@@ -57,6 +57,6 @@ CLI reported 62,101 tokens for the coding run and 29,543 for the role smoke. The
 
 ## Not established
 
-No quality-equivalent cost/latency comparison against root-only or the upstream fixed profile. No deadline SLA, automatic topology-selection accuracy estimate, full 14-scenario pass, production repository acceptance, all-role live dispatch, or Jev integration. Junction rejection exists in the installer but was not exercised on a real junction. Failure during the final filesystem rename was not fault-injected. Mermaid source diagrams were checked structurally, not visually rendered.
+No quality-equivalent cost/latency comparison against root-only or the upstream fixed profile. No deadline SLA, automatic topology-selection accuracy estimate, full 14-scenario pass, production repository acceptance, all-role live dispatch, or automatic Jev graph dispatch. An opt-in [Jev advisory smoke](docs/validation/jev-advisory-2026-10-02.md) now validates a single real API response and root-decision recording on synthetic state; it does not execute subagents or establish routing quality. Junction rejection exists in the installer but was not exercised on a real junction. Failure during the final filesystem rename was not fault-injected. Mermaid source diagrams were checked structurally, not visually rendered.
 
 Named models and efforts in role TOMLs are configured choices; runtime/account access and actual serving require runtime evidence. Model bindings are starting hypotheses informed by documentation, not benchmark-calibrated assignments.

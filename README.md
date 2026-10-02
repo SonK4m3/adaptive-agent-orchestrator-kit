@@ -8,7 +8,7 @@ Diagrams in this repository are reference patterns, not executable workflows. Ac
 
 ## What is included
 
-- Two self-contained skill entrypoints: `adaptive-agent-orchestrator` and `astra-orchestrator`.
+- Two self-contained orchestration entrypoints: `adaptive-agent-orchestrator` and `astra-orchestrator`, plus the installable `adaptive-orchestrator-setup` skill.
 - Ten Mermaid diagrams for routing, root-only work, focused delegation, parallel slices, staged high-risk work, debugging, deadlines, economy, scope changes, and optional Jev-assisted routing.
 - Eight optional, namespaced agent definitions: `ao_explorer`, `ao_researcher`, `ao_worker`, `ao_worker_complex`, `ao_worker_critical`, `ao_tester`, `ao_reviewer`, and `ao_design_advisor`.
 - Two resource profiles: `adaptive` (capacity 4) and `adaptive-max-2-subagents` (capacity 2). Both retain adaptive topology and the existing role/model bindings.
@@ -25,7 +25,7 @@ The two skills have equivalent orchestration guidance. Install either one or bot
 profiles/                 # Resource presets and shared namespaced roles
   adaptive/codex/agents/
   adaptive-max-2-subagents/
-skills/                   # Both self-contained skill entrypoints
+skills/                   # Two orchestration entrypoints and project setup skill
 guides/                   # Install, profiles, policy and upstream comparison
 scripts/                  # Setup, lifecycle, build, validation and live-run tooling
 tests/                    # Tooling and extracted-release lifecycle tests
@@ -70,6 +70,32 @@ flowchart TD
 The skill also includes separate diagrams for common cases, such as tracing competing bug hypotheses with one fix owner, preserving a verification window under a deadline, or adapting after a scope change. See [`skills/astra-orchestrator/references/patterns.md`](skills/astra-orchestrator/references/patterns.md).
 
 ## Install
+
+### AI-guided project-local setup
+
+Install the setup skill from this repository's published revision using the Skills CLI:
+
+```sh
+npx skills add https://github.com/SonK4m3/adaptive-agent-orchestrator-kit --skill adaptive-orchestrator-setup
+```
+
+Alternatively, give Codex the complete [setup SKILL.md](skills/adaptive-orchestrator-setup/SKILL.md). Ask:
+
+```text
+$adaptive-orchestrator-setup Prepare this existing repository for adaptive orchestration.
+Preview changes first. Keep setup project-local, preserve my instructions and root settings,
+use the two-subagent capacity profile, and leave JEV off.
+```
+
+The skill inspects configuration and conflicts before writes, then waits for approval of
+the preview. It installs orchestration skills under project `.agents/skills/`, optional
+roles under `.codex/agents/`, and appends portable routing to `AGENTS.md`. Applying the
+profile cap to project `.codex/config.toml` is an explicit reviewed merge. It never changes
+global settings. JEV is not required for any orchestration level. New-session runtime
+loading still needs verification. The Skills CLI command requires this addition to be
+published; it is not a claim that a remote install was tested.
+
+### Existing Codex-home installer
 
 Download and extract a release ZIP, or clone the kit repository after it has been published. Run setup from the extracted repository directory. Python 3.11 or newer is required; there are no third-party Python dependencies.
 
@@ -211,6 +237,33 @@ The installer `doctor` checks package and installed-file integrity offline. It c
 
 ## Update, uninstall, and restore
 
+Setup checks GitHub's latest stable release before local installation. A newer version
+is shown with its release-notes link; downloading and running its installer each require
+confirmation (default No). Automatic check failures warn and continue local setup.
+Use `sh ./setup.sh --offline` or `.\setup.ps1 -Offline` to skip the check.
+
+Explicit check/update commands:
+
+```sh
+sh ./update.sh --check
+sh ./update.sh
+# Equivalent Python CLI, also usable by Codex:
+python scripts/update.py --check --json
+python scripts/update.py --stage-dir /existing/temp-parent/new-source
+```
+
+```powershell
+.\update.ps1 -CheckOnly
+.\update.ps1
+```
+
+Checks compare the **setup source VERSION**, not project installation receipts.
+Explicit check/update failures return nonzero. `--stage-dir` downloads validated source
+for AI review without running it; the setup skill then previews a project-local update.
+The default script handoff retains the existing Codex-home installer and its target,
+profile and replacement prompts. Neither mode changes global configuration or installs
+a background service. See [update safety and release requirements](guides/UPDATES.md).
+
 To update, run setup again from a newer release. If a different kit component exists, confirm replacement when prompted; the previous content is backed up under `<CODEX_HOME>/.adaptive-agent-orchestrator-backups/`.
 
 Uninstall only receipt-managed components and preserve a backup:
@@ -240,6 +293,7 @@ For team measurement before/during/after tasks, the standalone `task-retro-surve
 - [Patterns and diagrams](skills/astra-orchestrator/references/patterns.md)
 - [Roles and assignment boundaries](skills/astra-orchestrator/references/roles.md)
 - [Model and deadline policy](skills/astra-orchestrator/references/model-deadline.md)
+- [Optional JEV workflow advisory and explicit live smoke](guides/JEV-ADVISORY.md)
 - [Validation results and limitations](VALIDATION.md)
 - [Scenario checklist](eval/scenarios/catalog.md)
 - [Attribution](ATTRIBUTION.md)

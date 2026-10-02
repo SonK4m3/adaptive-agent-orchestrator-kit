@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "task_id": "synthetic-auth-example",
+  "revision": 1,
+  "summary": "Synthetic fixture: implementation ready; independent verification remains unrun.",
+  "trigger": "checkpoint",
+  "mode": "implement",
+  "acceptance_gaps": ["Refresh-token replay test remains unrun; independent review is required."],
+  "allowed_write_paths": ["src/auth.ts"],
+  "active_agents": ["worker-1"],
+  "owners": [{"actor": "worker-1", "write_paths": ["src/auth.ts"]}],
+  "available_roles": ["worker", "verifier", "architect"],
+  "max_agents": 2,
+  "time_remaining_seconds": 300,
+  "stop_required": false,
+  "candidates": [
+    {"id": "reuse-worker", "action": "reuse", "role": "worker", "actor": "worker-1", "output": "Run the replay test and return executable evidence; independent review still remains.", "write_paths": ["src/auth.ts"], "independent": false},
+    {"id": "independent-review", "action": "spawn", "role": "verifier", "actor": "proposed-reviewer", "output": "Review auth invariants independently; return findings, not code changes.", "write_paths": [], "independent": true},
+    {"id": "conflicting-worker", "action": "spawn", "role": "worker", "actor": "proposed-worker", "output": "Rewrite the same auth file.", "write_paths": ["src/auth.ts"], "independent": true}
+  ]
+}

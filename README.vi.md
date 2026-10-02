@@ -18,6 +18,24 @@ Diagram chỉ mô tả pattern, không phải workflow engine thực thi đượ
 
 ## Cài đặt
 
+### Setup project-local bằng AI
+
+Khi skill đã được publish lên repository:
+
+```sh
+npx skills add https://github.com/SonK4m3/adaptive-agent-orchestrator-kit --skill adaptive-orchestrator-setup
+```
+
+Hoặc gửi Codex toàn bộ [skill setup](skills/adaptive-orchestrator-setup/SKILL.md), kèm đường dẫn project đích. Skill bắt đầu bằng preview chỉ đọc và chờ duyệt trước khi ghi: cài skill vào `.agents/skills/`, role tùy chọn vào `.codex/agents/`, thêm routing ở cuối `AGENTS.md` và giữ nội dung cũ. Cap profile chỉ được merge vào `.codex/config.toml` khi đã duyệt; không sửa global config, root model/effort, approvals hay credentials. Khuyến nghị pilot `adaptive-max-2-subagents`, không ép số agent. JEV mặc định không bật và không phải điều kiện để dùng L0–L3. Lệnh cài remote chưa được chạy kiểm chứng trong thay đổi này.
+
+Sau setup, mở chat Codex mới tại project và dùng `$adaptive-agent-orchestrator` hoặc `$astra-orchestrator`. Kiểm tra file không thay thế bằng chứng runtime discovery/dispatch.
+
+### Installer Codex-home hiện có
+
+Setup tự check stable release khi bắt đầu, báo link release notes và hỏi riêng trước khi tải/chạy (mặc định No). Check lỗi thì cảnh báo và tiếp tục bản local; bỏ qua bằng `.\setup.ps1 -Offline` hoặc `sh ./setup.sh --offline`. Check/update chủ động: `.\update.ps1 -CheckOnly`, `.\update.ps1`, hoặc `sh ./update.sh --check`, `sh ./update.sh`. Lệnh chủ động lỗi trả exit code khác 0. Đây là so sánh VERSION của bộ source, không phải phiên bản đã cài ở từng project.
+
+Skill setup dùng `python scripts/update.py --check --json`, rồi `--stage-dir PATH_MOI` nếu user duyệt tải: không chạy installer Codex-home, mà preview lại setup project-local. Xem [cơ chế update và giới hạn](guides/UPDATES.md). Chưa có background service hay thay đổi global config.
+
 Cần Python 3.11 trở lên, không cần package bên thứ ba. Giải nén ZIP và chạy setup tương tác:
 
 ```sh

@@ -1,0 +1,5 @@
+{
+  "choice": "reuse-worker",
+  "reason": "Synthetic example: execute the outstanding behavior check first, then independently review. This decision does not mark acceptance complete.",
+  "evidence": ["synthetic state fixture; no real task execution"]
+}

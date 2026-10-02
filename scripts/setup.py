@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import argparse
 from pathlib import Path
 import subprocess
 import sys
@@ -34,7 +35,16 @@ def confirm(prompt: str, default: bool) -> bool:
         print("Please answer yes or no.")
 
 
-def main() -> int:
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--offline', action='store_true', help='Skip the best-effort stable release check')
+    parser.add_argument('--skip-release-check', action='store_true', help=argparse.SUPPRESS)
+    args = parser.parse_args(argv)
+    if not args.offline and not args.skip_release_check:
+        from update import automatic
+        handoff_result = automatic(ROOT)
+        if handoff_result is not None:
+            return handoff_result
     print("Adaptive Agent Orchestrator — Codex setup")
     print("This installs the selected skill(s) and optional agent role definitions.\n")
     profile = choose(

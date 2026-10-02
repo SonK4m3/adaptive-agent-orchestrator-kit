@@ -26,6 +26,8 @@ root = Path(__file__).resolve().parents[1]
 assert (root / 'scripts/manage.py').is_file()
 assert (root / 'eval/scenarios/catalog.md').is_file()
 skills = [root / 'skills' / 'adaptive-agent-orchestrator', root / 'skills' / 'astra-orchestrator']
+setup_skill = root / 'skills/adaptive-orchestrator-setup/SKILL.md'
+assert setup_skill.read_text(encoding='utf-8').startswith('---\nname: adaptive-orchestrator-setup\n')
 for skill in skills:
     validate_navigation(skill)
     entry = (skill / 'SKILL.md').read_text(encoding='utf-8')

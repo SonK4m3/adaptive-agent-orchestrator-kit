@@ -18,7 +18,7 @@ class InteractiveSetupTests(unittest.TestCase):
             (Path(temp) / 'AGENTS.md').write_bytes(original)
             env = {**os.environ, "CODEX_HOME": str(target)}
             result = subprocess.run(
-                [sys.executable, str(ROOT / "scripts" / "setup.py")],
+                [sys.executable, str(ROOT / "scripts" / "setup.py"), '--offline'],
                 input=f"1\n3\ny\nn\n{target}\n{temp}\n",
                 text=True,
                 capture_output=True,
@@ -39,7 +39,7 @@ class InteractiveSetupTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             target = Path(temp) / 'codex-home'
             result = subprocess.run(
-                [sys.executable, str(ROOT / 'scripts/setup.py')],
+                [sys.executable, str(ROOT / 'scripts/setup.py'), '--offline'],
                 input=f'1\n3\nn\nn\n{target}\n{Path(temp) / "missing"}\n',
                 text=True, capture_output=True, cwd=ROOT,
                 env={**os.environ, 'CODEX_HOME': str(target)},
@@ -54,7 +54,7 @@ class InteractiveSetupTests(unittest.TestCase):
             original = b'# Keep\n<!-- adaptive-agent-orchestrator-kit: routing v1 -->'
             instructions.write_bytes(original)
             result = subprocess.run(
-                [sys.executable, str(ROOT / 'scripts/setup.py')],
+                [sys.executable, str(ROOT / 'scripts/setup.py'), '--offline'],
                 input=f'1\n3\nn\nn\n{target}\n{temp}\n', text=True,
                 capture_output=True, cwd=ROOT, env={**os.environ, 'CODEX_HOME': str(target)},
             )
@@ -67,7 +67,7 @@ class InteractiveSetupTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             target = Path(temp) / 'codex-home'
             result = subprocess.run(
-                [sys.executable, str(ROOT / 'scripts/setup.py')],
+                [sys.executable, str(ROOT / 'scripts/setup.py'), '--offline'],
                 input=f'2\n2\nn\ny\n{target}\n\n', text=True, capture_output=True, cwd=ROOT,
                 env={**os.environ, 'CODEX_HOME': str(target)},
             )

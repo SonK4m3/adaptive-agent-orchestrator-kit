@@ -107,6 +107,37 @@ class RegistrationTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'existing directory'):
             register_project(self.base / 'missing', self.home)
 
+    def test_project_local_links_preserve_bytes_and_ignore_global_skills(self):
+        for name in ('adaptive-agent-orchestrator', 'astra-orchestrator'):
+            entry = self.project / '.agents/skills' / name / 'SKILL.md'
+            entry.parent.mkdir(parents=True)
+            entry.write_text('project installed skill')
+        original = codecs.BOM_UTF8 + b'# Keep existing instructions\r\n'
+        self.path.write_bytes(original)
+        register_project(self.project, self.home, 'adaptive-agent-orchestrator', project_skills=True)
+        written = self.path.read_bytes()
+        self.assertTrue(written.startswith(original))
+        self.assertIn(b'](.agents/skills/adaptive-agent-orchestrator/SKILL.md)', written)
+        self.assertNotIn(str(self.home).encode(), written)
+        self.assertEqual(register_project(self.project, self.home, 'adaptive-agent-orchestrator', project_skills=True)['status'], 'unchanged')
+        self.assertEqual(self.path.read_bytes(), written)
+
+    def test_project_local_missing_skill_does_not_fall_back_to_global(self):
+        with self.assertRaisesRegex(RuntimeError, 'missing'):
+            register_project(self.project, self.home, project_skills=True)
+        self.assertFalse(self.path.exists())
+
+    def test_switching_existing_registration_requires_explicit_resolution(self):
+        register_project(self.project, self.home)
+        for name in ('adaptive-agent-orchestrator', 'astra-orchestrator'):
+            entry = self.project / '.agents/skills' / name / 'SKILL.md'
+            entry.parent.mkdir(parents=True)
+            entry.write_text('local')
+        original = self.path.read_bytes()
+        with self.assertRaisesRegex(RuntimeError, 'differs'):
+            register_project(self.project, self.home, project_skills=True)
+        self.assertEqual(self.path.read_bytes(), original)
+
 
 if __name__ == '__main__':
     unittest.main()

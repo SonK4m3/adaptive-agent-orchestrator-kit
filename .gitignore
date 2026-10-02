@@ -5,3 +5,6 @@ __pycache__/
 adaptive-agent-orchestrator-kit.zip
 adaptive-agent-orchestrator-kit.zip.sha256
 dist/
+.env
+.env.*
+!.env.example

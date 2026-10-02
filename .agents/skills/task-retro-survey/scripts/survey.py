@@ -3,11 +3,13 @@ import argparse
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 import json
+import hashlib
 import os
 from pathlib import Path
 import re
 import sys
 import uuid
+import codex_usage
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 KINDS = ('phase', 'agent_start', 'agent_end', 'blocker', 'retry', 'scope_change',
@@ -16,7 +18,8 @@ KINDS = ('phase', 'agent_start', 'agent_end', 'blocker', 'retry', 'scope_change'
 STATUSES = ('completed', 'partial', 'blocked', 'cancelled')
 DETAIL_FIELDS = ('participant_alias', 'repository_id', 'client', 'plan', 'task_type',
                  'objective', 'acceptance_criteria', 'scope', 'specification_state',
-                 'expected_elapsed_minutes', 'deadline', 'usage_limit', 'models', 'evidence_sources')
+                 'expected_elapsed_minutes', 'deadline', 'usage_limit', 'models', 'evidence_sources',
+                 'comparison_contract')
 
 
 def offset(value):
@@ -143,6 +146,81 @@ def build_summary(task, report, ended_at, status):
             'intake': task['details'], 'report': report}
 
 
+def imported_usage(run):
+    """Use the latest snapshot; repeated imports must never be summed."""
+    latest = None
+    for line in (run / 'events.jsonl').read_text(encoding='utf-8').splitlines():
+        event = json.loads(line)
+        if event['kind'] == 'usage' and isinstance(event.get('data'), dict):
+            name = event['data'].get('collector_snapshot')
+            if isinstance(name, str) and re.fullmatch(r'usage-[a-f0-9]{32}\.json', name):
+                path = run / name
+                if linked(path):
+                    raise ValueError('Usage snapshot must not be a symlink')
+                latest = read(path)
+    return latest
+
+
+def attach_usage(run, payload):
+    snapshot = imported_usage(run)
+    if snapshot is not None:
+        supplied = payload.get('usage')
+        if supplied is not None and not isinstance(supplied, dict):
+            raise ValueError('usage must be an object or null')
+        payload['usage'] = {**(supplied or {}), 'measured_channels': snapshot,
+                            'collector_policy': 'Latest snapshot only; never sum repeated imports'}
+
+
+def collect_usage(args):
+    run = resolve_run(args.run)
+    rollout = args.rollout or []
+    if bool(rollout) != bool(args.root):
+        raise ValueError('--root and selected --rollout files must be supplied together')
+    if not rollout and not args.jev_evidence:
+        raise ValueError('At least one Codex rollout or JEV evidence file is required')
+    codex = codex_usage.collect(rollout, args.root) if rollout else None
+    jev, seen = [], set()
+    for source in args.jev_evidence or []:
+        path = Path(source)
+        if path.stat().st_size > 1024 * 1024:
+            raise ValueError('JEV evidence exceeds 1 MiB')
+        raw_bytes = path.read_bytes()
+        digest = hashlib.sha256(raw_bytes).hexdigest()
+        if digest in seen:
+            continue
+        seen.add(digest)
+        raw = json.loads(raw_bytes)
+        if not isinstance(raw, dict) or raw.get('status') not in ('pass', 'failed', 'skipped_deterministic'):
+            raise ValueError('Unsupported JEV smoke evidence')
+        attempts, retries = raw.get('network_calls_attempted'), raw.get('retries')
+        if type(attempts) is not int or attempts < 0 or type(retries) is not int or retries < 0:
+            raise ValueError('Invalid JEV attempts/retries')
+        usage = raw.get('usage') if isinstance(raw.get('usage'), dict) else {}
+        tokens = {k: usage.get(k) if type(usage.get(k)) is int and usage[k] >= 0 else None
+                  for k in ('input_tokens', 'output_tokens')}
+        if raw['status'] == 'pass' and (attempts < 1 or any(v is None for v in tokens.values())):
+            raise ValueError('Successful JEV evidence needs usage and a request attempt')
+        jev.append({'provider': 'typesafe', 'source_ref': path.name, 'source_sha256': digest,
+                    'observation_basis': 'imported', 'status': raw['status'],
+                    'model': codex_usage.identifier(raw.get('model')),
+                    'measured_at': codex_usage.timestamp(raw.get('recorded_at')),
+                    'scope': 'api_request', 'tokens': tokens, 'attempts': attempts,
+                    'retries': retries, 'cost_usd': None})
+    snapshot = {'schema_version': 1, 'coding_agents': codex, 'jev_advisory': jev,
+                'coverage': 'Explicit selected sources; omitted agents/requests unknown',
+                'combined_token_total': None, 'combined_cost_usd': None}
+    with lock(run):
+        task = read(run / 'task.json')
+        if task['status'] != 'in_progress':
+            raise ValueError('Run is closed; use a separately reviewed amendment')
+        name = 'usage-' + uuid.uuid4().hex + '.json'
+        write(run / name, snapshot)
+        append(run, task, 'usage', {'observation_basis': 'imported',
+               'note': 'Selected source counters imported; Codex and JEV remain separate',
+               'evidence': [name], 'data': {'collector_snapshot': name}})
+    return {'run_path': str(run), 'usage_snapshot': name}
+
+
 def summary_markdown(run, summary):
     text = f"# {summary['name']} — retrospective\n\nRun: {summary['run_id']}\n\nStatus: {summary['status']}\n\n"
     text += f"{summary['started_at']} → {summary['ended_at']} ({summary['timezone']})\n\nObserved recording wall time: {summary['elapsed_wall_seconds']} seconds; full task duration is unknown if recording began late. Active time is not inferred.\n"
@@ -182,6 +260,7 @@ def operate(args):
                     raise ValueError('Summary already exists; use amend for explicit correction')
                 if not payload:
                     raise ValueError('Final report is required; missing metrics may be null')
+                attach_usage(run, payload)
                 task['status'] = args.status
                 summary = build_summary(task, payload, now(task), args.status)
                 write(summary_path, summary)
@@ -191,6 +270,7 @@ def operate(args):
             else:
                 if not summary_path.exists() or not payload:
                     raise ValueError('Amend requires an existing summary and corrected report')
+                attach_usage(run, payload)
                 previous = read(summary_path)
                 archive = run / ('summary-before-amend-' + uuid.uuid4().hex[:8] + '.json')
                 write(archive, previous)
@@ -209,6 +289,11 @@ def main():
     create.add_argument('--task', required=True)
     create.add_argument('--timezone', required=True)
     create.add_argument('--utc-offset', required=True)
+    usage = subs.add_parser('collect-usage')
+    usage.add_argument('--run', required=True)
+    usage.add_argument('--root', help='Exact root thread ID, not prefix')
+    usage.add_argument('--rollout', action='append', help='Selected root/child JSONL; repeat')
+    usage.add_argument('--jev-evidence', action='append', help='JEV smoke evidence.json; repeat')
     for command in ('update', 'event', 'finalize', 'amend'):
         sub = subs.add_parser(command)
         sub.add_argument('--run', required=True)
@@ -221,7 +306,8 @@ def main():
             sub.add_argument('--status', required=True, choices=STATUSES)
     args = parser.parse_args()
     try:
-        result = start(args) if args.command == 'start' else operate(args)
+        result = (start(args) if args.command == 'start' else collect_usage(args)
+                  if args.command == 'collect-usage' else operate(args))
         print(json.dumps(result, ensure_ascii=False))
         return 0
     except (ValueError, OSError, KeyError) as exc:

@@ -57,6 +57,25 @@ class ReleaseLifecycleTests(unittest.TestCase):
             self.assertTrue(appended.startswith(original))
             self.run_cli(registration, '--project', str(project), '--target', str(target))
             self.assertEqual(instructions.read_bytes(), appended)
+            self.assertTrue((package / 'skills/adaptive-orchestrator-setup/SKILL.md').is_file())
+            local_project = base / 'project-local-consumer'
+            local_project.mkdir()
+            local_instructions = local_project / 'AGENTS.md'
+            local_instructions.write_bytes(original)
+            local_home = local_project / '.codex'
+            self.run_cli(manager, 'install', '--target', str(local_home), '--parts', 'roles', '--profile', 'adaptive-max-2-subagents')
+            self.run_cli(manager, 'doctor', '--target', str(local_home))
+            local_skill = local_project / '.agents/skills/adaptive-agent-orchestrator'
+            shutil.copytree(package / 'skills/adaptive-agent-orchestrator', local_skill)
+            self.run_cli(registration, '--project', str(local_project), '--project-skills', '--skill', 'adaptive-agent-orchestrator')
+            local_bytes = local_instructions.read_bytes()
+            self.assertTrue(local_bytes.startswith(original))
+            self.assertIn(b'](.agents/skills/adaptive-agent-orchestrator/SKILL.md)', local_bytes)
+            self.run_cli(registration, '--project', str(local_project), '--project-skills', '--skill', 'adaptive-agent-orchestrator')
+            self.assertEqual(local_instructions.read_bytes(), local_bytes)
+            self.assertEqual(len(list((local_home / 'agents').glob('ao_*.toml'))), 8)
+            self.assertFalse((local_home / 'config.toml').exists())
+            self.assertFalse((local_home / 'skills').exists())
             for name in ('adaptive-agent-orchestrator', 'astra-orchestrator'):
                 self.assertTrue((target / 'skills' / name / 'references/patterns.md').is_file())
             self.run_cli(manager, 'uninstall', '--target', str(target))

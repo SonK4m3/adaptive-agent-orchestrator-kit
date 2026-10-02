@@ -1,5 +1,11 @@
 # Installation details
 
+For AI-guided project-local installation, use [adaptive-orchestrator-setup](../skills/adaptive-orchestrator-setup/SKILL.md).
+This is distinct from the existing Codex-home wrappers described below: project skills
+go in `.agents/skills/`, roles in `.codex/agents/`, and any concurrency setting is an
+explicit project-config merge. The setup skill does not silently invoke the global-default
+wrappers or install itself with the orchestration entrypoints.
+
 The installer requires Python 3.11+ and uses only the standard library. Run `./setup.sh` on macOS/Linux or `./setup.ps1` in Windows PowerShell for interactive setup. It asks which skill entrypoint(s), optional roles, and target Codex home to install, then runs the offline integrity check. It reads the package manifest before install and refuses missing, modified, or unlisted distributable files. distribution.json selects paths and permitted extensions; unrelated source artifacts are not installed. Use the extracted release directory as-is.
 
 Setup also asks for a resource profile and an optional named preset, defaulting preset installation to No. Use --profile adaptive or --profile adaptive-max-2-subagents. Both reference the same role bindings and skills. --with-profile-config additionally installs <profile>.config.toml as a receipt-managed component; activate it in a new CLI session with codex -p <profile>. See [profile details](PROFILES.md). Existing base config.toml and project instructions are preserved.
@@ -43,3 +49,15 @@ never automatically replaced. Skill install may succeed even if project routing
 fails: setup reports this separately and returns failure rather than claiming full
 completion. Do not commit machine-specific absolute skill paths to a shared repo
 without review; each teammate should register against their own installation.
+
+For already installed project-local skills, use portable relative routing instead:
+
+```sh
+python scripts/register_project.py --project /path/to/project --project-skills --skill adaptive-agent-orchestrator
+```
+
+`--project-skills` verifies the selected entries in that project's `.agents/skills/`
+and cannot be combined with `--target`. It never falls back to global skills. Changing
+an existing absolute-path block to relative paths still requires manual review of the
+conflicting block; the helper refuses to replace it. The same append-only encoding,
+lock, symlink and rerun safeguards apply.
