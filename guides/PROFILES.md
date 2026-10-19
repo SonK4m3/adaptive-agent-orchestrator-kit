@@ -2,7 +2,7 @@
 
 | Profile | Concurrent capacity | Policy / roles | Root model |
 | --- | --- | --- | --- |
-| adaptive | 4 | Shared adaptive policy and eight ao_* bindings | User's existing choice |
+| adaptive | 4 | Shared adaptive policy and nine optional ao_* roles, including the DSH bridge | User's existing choice |
 | adaptive-max-2-subagents | 2 | Same | User's existing choice |
 
 Neither profile prescribes an agent count or topology. Root explains useful independent outputs and verification risk before selecting workstreams. Reviewer/tester selection remains risk-based. The limited-capacity profile may stage work; it does not reduce acceptance requirements.

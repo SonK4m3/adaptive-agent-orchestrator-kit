@@ -120,7 +120,7 @@ class UpdateTests(unittest.TestCase):
     def test_safe_archive_matches_version_and_manifest(self):
         source = update.extract(self.write_archive(self.source_zip()), self.base / 'extract', self.tag)
         self.assertTrue((source / 'scripts/setup.py').is_file())
-        self.assertEqual(len(list((source / 'profiles/adaptive/codex/agents').glob('*.toml'))), 8)
+        self.assertEqual(len(list((source / 'profiles/adaptive/codex/agents').glob('*.toml'))), 9)
 
     def test_bad_manifest_version_layout_or_hash_rejected(self):
         for changes in ({'VERSION': b'0.0.1'}, {'scripts/setup.py': None},
@@ -278,7 +278,8 @@ class UpdateTests(unittest.TestCase):
         with patch('builtins.input', side_effect=['y', 'y']), patch.object(update, 'fetch', return_value=self.source_zip()), patch.object(update.subprocess, 'run', side_effect=actual_child):
             self.assertEqual(update.handoff(self.info), 0)
         self.assertEqual(config.read_text(), 'model = "keep-root"\n')
-        self.assertEqual(len(list((target / 'agents').glob('ao_*.toml'))), 8)
+        self.assertEqual(len(list((target / 'agents').glob('ao_*.toml'))), 9)
+        self.assertTrue((target / 'scripts/deepseek_worker.py').is_file())
         self.assertTrue((target / 'skills/adaptive-agent-orchestrator/SKILL.md').is_file())
 
     def test_powershell_wrapper_offline_and_syntax(self):

@@ -121,6 +121,7 @@ def managed_path(rel_text: str) -> Path:
         raise RuntimeError('Invalid managed component path')
     rel = Path(rel_text)
     allowed = {f'skills/{name}' for name in SKILLS} | {f'{name}.config.toml' for name in PROFILES}
+    allowed.update({'scripts/deepseek_worker.py', 'scripts/process_guard.py'})
     normalized = rel.as_posix()
     role = re.fullmatch(r'agents/ao_[A-Za-z0-9_]+\.toml', normalized)
     if rel.is_absolute() or '..' in rel.parts or (normalized not in allowed and not role):
@@ -135,11 +136,22 @@ def stamp() -> str:
 def components(args: argparse.Namespace) -> list[tuple[Path, Path]]:
     result: list[tuple[Path, Path]] = []
     profile = profile_data(getattr(args, "profile", "adaptive"))
+    role_filter = getattr(args, "role", None)
+    role_paths = sorted((ROOT / profile["roles"]).glob("ao_*.toml"))
+    if role_filter:
+        if args.parts != "roles":
+            raise RuntimeError("--role can be used only with --parts roles")
+        role_paths = [p for p in role_paths if p.stem == role_filter]
+        if not role_paths:
+            raise RuntimeError(f"Unknown role for profile {profile['name']}: {role_filter}")
     if args.parts in ("all", "skills"):
         names = SKILLS if args.skill == "both" else (args.skill,)
         result.extend((ROOT / "skills" / name, Path("skills") / name) for name in names)
     if args.parts in ("all", "roles"):
-        result.extend((p, Path("agents") / p.name) for p in sorted((ROOT / profile["roles"]).glob("ao_*.toml")))
+        result.extend((p, Path("agents") / p.name) for p in role_paths)
+        if any(p.stem == "ao_deepseek_worker" for p in role_paths):
+            result.append((ROOT / "scripts/deepseek_worker.py", Path("scripts/deepseek_worker.py")))
+            result.append((ROOT / "scripts/process_guard.py", Path("scripts/process_guard.py")))
     if getattr(args, "with_profile_config", False):
         result.append((ROOT / profile["config"], Path(f"{profile['name']}.config.toml")))
     return result
@@ -169,11 +181,11 @@ def write_json(path: Path, value: dict) -> None:
 
 def install(args: argparse.Namespace) -> None:
     validate_release()
+    items = components(args)
     target = codex_home(args.target)
     target.mkdir(parents=True, exist_ok=True)
-    items = components(args)
-    if not items or len(list((ROOT / profile_data(getattr(args, "profile", "adaptive"))["roles"]).glob("ao_*.toml"))) != 8:
-        raise RuntimeError("Expected two bundled skills and exactly eight ao_*.toml roles")
+    if not items or len(list((ROOT / profile_data(getattr(args, "profile", "adaptive"))["roles"]).glob("ao_*.toml"))) != 9:
+        raise RuntimeError("Expected two bundled skills and exactly nine ao_*.toml roles")
     state = load_state(target)
     # Preflight all conflicts before making any changes.
     for source, rel in items:
@@ -418,6 +430,7 @@ def parser() -> argparse.ArgumentParser:
             q.add_argument("--with-profile-config", action="store_true", help="Install a separate named runtime preset; activate with codex -p NAME in a new session")
             q.add_argument("--skill", choices=("both", *SKILLS), default="both")
             q.add_argument("--parts", choices=("all", "skills", "roles"), default="all")
+            q.add_argument("--role", help="install only this named role (requires --parts roles)")
             q.add_argument("--replace", action="store_true", help="Back up and replace differing managed destinations")
         elif name == "uninstall":
             q.add_argument("--force", action="store_true", help="Back up then remove modified managed components")

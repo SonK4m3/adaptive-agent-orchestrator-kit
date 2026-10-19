@@ -57,11 +57,13 @@ for path in distribution_files(root):
         if '://' not in target and not target.startswith('#'):
             assert (path.parent / target.split('#')[0]).exists(), (path, target)
 roles = list((root / 'profiles/adaptive/codex/agents').glob('ao_*.toml'))
-assert len(roles) == 8
+assert len(roles) == 9
+assert any(role.stem == 'ao_deepseek_worker' for role in roles)
+assert (root / 'scripts/deepseek_worker.py').is_file()
 for path in roles:
     role = tomllib.loads(path.read_text(encoding='utf-8'))
     assert role['name'] == path.stem
     assert role['model'] and role['model_reasoning_effort']
     assert role['sandbox_mode'] in ('read-only', 'workspace-write')
     assert role['developer_instructions'].strip()
-print('PASS: skill links, alias resources, 10 diagrams per alias, 8 parsed role TOMLs')
+print('PASS: skill links, alias resources, 10 diagrams per alias, 9 parsed role TOMLs')

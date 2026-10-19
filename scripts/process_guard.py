@@ -85,11 +85,20 @@ def spawn_process(command, **kwargs):
         guard.attach(proc)
         return proc, guard
     except BaseException:
-        if proc is not None:
-            proc.kill()
+        # Cleanup must not mask the original spawn/attachment error or skip the job.
+        try:
+            if proc is not None:
+                try:
+                    proc.kill()
+                except OSError:
+                    pass
+                try:
+                    proc.wait(timeout=2)
+                except (OSError, subprocess.TimeoutExpired):
+                    pass
+        finally:
             try:
-                proc.wait(timeout=2)
-            except subprocess.TimeoutExpired:
+                guard.close()
+            except OSError:
                 pass
-        guard.close()
         raise

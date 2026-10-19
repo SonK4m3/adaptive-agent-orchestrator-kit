@@ -153,13 +153,14 @@ def validate_source(source: Path, tag: str) -> None:
         raise ValueError("Archive VERSION does not match release tag")
     required = ("setup.sh", "setup.ps1", "scripts/setup.py", "scripts/manage.py",
                 "scripts/package_layout.py", "scripts/register_project.py",
-                "scripts/validate_package.py", "distribution.json",
+                "scripts/validate_package.py", "scripts/deepseek_worker.py",
+                "scripts/process_guard.py", "distribution.json",
                 "skills/adaptive-agent-orchestrator/SKILL.md", "skills/astra-orchestrator/SKILL.md",
                 "profiles/adaptive/profile.toml", "profiles/adaptive-max-2-subagents/profile.toml")
     if any(not (source / name).is_file() for name in required):
         raise ValueError("Incomplete source layout")
     roles = list((source / "profiles/adaptive/codex/agents").glob("ao_*.toml"))
-    if len(roles) != 8:
+    if len(roles) != 9:
         raise ValueError("Incomplete source roles")
     manifest = json.loads((source / "release-manifest.json").read_text(encoding="utf-8"))
     if (not isinstance(manifest, dict) or manifest.get("schema") != 1 or not isinstance(manifest.get("files"), dict)

@@ -1,5 +1,7 @@
 # Coding orchestration patterns — 10 diagrams
 
+For coding execution, apply the [DeepSeek-first routing policy](deepseek-first.md) first. The Codex roles, capability examples and topology diagrams below describe planning or Codex fallback; they do not override the coding route or existing model pins.
+
 Choose the smallest useful organization. Dashed edges are optional or advisory. Roles are assignments, not model pins. Every diagram inherits SKILL.md scope and verification rules.
 
 These are organization examples, not live graph snapshots. For observed workstream IDs, agent assignments, ownership and replan deltas use the [graph record](../assets/graph-record.md); distinguish dependency edges from verification edges. Read only the matching case when possible.

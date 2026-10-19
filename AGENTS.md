@@ -4,7 +4,7 @@ Preserve adaptive routing, both skill entrypoints, task-specific contracts, risk
 
 ## Skill routing
 
-Consider orchestration automatically when independent outputs, context load or verification risk justify coordination; do not spawn agents merely because a task touches many files. Read [adaptive-agent-orchestrator](skills/adaptive-agent-orchestrator/SKILL.md), or [astra-orchestrator](skills/astra-orchestrator/SKILL.md) when explicitly selected. They expose the same policy: load one entrypoint, not both. Small or tightly coupled tasks stay root-only, without mandatory graph, contract files or separate reports; still report changes, checks and material limits briefly.
+Consider orchestration automatically when independent outputs, context load or verification risk justify coordination; do not spawn agents merely because a task touches many files. Read [adaptive-agent-orchestrator](skills/adaptive-agent-orchestrator/SKILL.md), or [astra-orchestrator](skills/astra-orchestrator/SKILL.md) when explicitly selected. They expose the same policy: load one entrypoint, not both. Coding delegation follows the selected entrypoint's DeepSeek-first policy; small or tightly coupled Codex fallback tasks can stay root-only, without mandatory graph, contract files or separate reports; still report changes, checks and material limits briefly.
 
 Root owns architecture, dependencies and integration; use one writer per path. Profile capacity never requires an agent count. Review/audit requests are read-only. Graph records are for coordination/ownership/handoff tracking or requested audits, not a default task artifact. Read supporting skill resources only when the selected workflow needs them.
 

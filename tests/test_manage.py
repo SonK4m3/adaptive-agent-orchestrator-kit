@@ -24,7 +24,10 @@ class PackageInstallerTests(unittest.TestCase):
         (self.package / "skills" / "astra-orchestrator").mkdir()
         role_root = self.package / "profiles" / "adaptive" / "codex" / "agents"
         role_root.mkdir(parents=True)
-        (self.package / "distribution.json").write_text(json.dumps({"schema": 1, "include": ["skills", "profiles", "distribution.json"], "directory_extensions": {"skills": [".md"], "profiles": [".toml"]}}))
+        (self.package / "scripts").mkdir()
+        (self.package / "scripts" / "deepseek_worker.py").write_text("# test helper\n")
+        (self.package / "scripts" / "process_guard.py").write_text("# process helper\n")
+        (self.package / "distribution.json").write_text(json.dumps({"schema": 1, "include": ["skills", "profiles", "scripts", "distribution.json"], "directory_extensions": {"skills": [".md"], "profiles": [".toml"], "scripts": [".py"]}}))
         for profile in manage.PROFILES:
             profile_root = self.package / "profiles" / profile
             profile_root.mkdir(exist_ok=True)
@@ -35,6 +38,7 @@ class PackageInstallerTests(unittest.TestCase):
             (self.package / "skills" / name / "SKILL.md").write_text(f"skill={name}\n")
         for n in range(8):
             (role_root / f"ao_test{n}.toml").write_text(f"role={n}\n")
+        (role_root / "ao_deepseek_worker.toml").write_text('role="deepseek"\n')
         self.manifest = self.package / "release-manifest.json"
         self._refresh_manifest()
         self.old_root, self.old_manifest = manage.ROOT, manage.MANIFEST
@@ -130,6 +134,20 @@ class PackageInstallerTests(unittest.TestCase):
     def test_profile_config_is_opt_in(self):
         manage.install(self._args())
         self.assertFalse((self.target / 'adaptive.config.toml').exists())
+
+    def test_install_only_deepseek_role_and_helpers(self):
+        manage.install(self._args(parts="roles", role="ao_deepseek_worker"))
+        self.assertEqual([p.name for p in (self.target / "agents").glob("*.toml")], ["ao_deepseek_worker.toml"])
+        self.assertTrue((self.target / "scripts/deepseek_worker.py").is_file())
+        self.assertTrue((self.target / "scripts/process_guard.py").is_file())
+        self.assertFalse((self.target / "config.toml").exists())
+
+    def test_unknown_or_miscombined_role_filter_fails_before_write(self):
+        with self.assertRaisesRegex(RuntimeError, "Unknown role"):
+            manage.install(self._args(parts="roles", role="ao_missing"))
+        with self.assertRaisesRegex(RuntimeError, "only with --parts roles"):
+            manage.install(self._args(parts="all", role="ao_deepseek_worker"))
+        self.assertFalse(self.target.exists())
 
     def test_tampered_receipt_cannot_escape_target(self):
         manage.install(self._args(parts='skills', skill=manage.SKILLS[0]))

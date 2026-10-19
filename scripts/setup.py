@@ -56,7 +56,7 @@ def main(argv=None) -> int:
         {"1": "both", "2": "astra-orchestrator", "3": "adaptive-agent-orchestrator"},
         "1",
     )
-    parts = "all" if confirm("Install the 8 optional subagent role definitions too?", True) else "skills"
+    parts = "all" if confirm("Install the 9 optional subagent role definitions too?", True) else "skills"
     with_profile_config = confirm("Install an optional named runtime preset (activate with codex -p NAME)?", False)
     default_target = os.environ.get("CODEX_HOME") or str(Path.home() / ".codex")
     custom = input(f"Codex home [Enter for {default_target}]: ").strip()

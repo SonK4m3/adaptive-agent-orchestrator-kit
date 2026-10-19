@@ -1,6 +1,6 @@
 # Adaptive Agent Orchestrator cho Codex
 
-Bộ skill Codex có thể cài đặt, dành cho công việc phần mềm: chọn topology subagent nhỏ nhất nhưng hữu ích, giữ acceptance criteria, thích ứng khi phát hiện mới làm thay đổi kế hoạch và kiểm chứng kết quả tích hợp.
+Bộ skill Codex cài được cho công việc phần mềm: chọn topology L0–L3 nhỏ nhất nhưng hữu ích, ưu tiên DeepSeek Harness cho coding task đủ rõ và delegation có lợi, thích ứng theo bằng chứng mới, còn Root giữ trách nhiệm tích hợp và nghiệm thu.
 
 **Ưu tiên:** làm đúng, đủ yêu cầu → deadline/thời gian → token và chi phí.
 
@@ -8,7 +8,8 @@ Bộ skill Codex có thể cài đặt, dành cho công việc phần mềm: ch�
 
 - Hai entrypoint skill tương đương, tự chứa: `adaptive-agent-orchestrator` và `astra-orchestrator` (cài một hoặc cả hai).
 - 10 sơ đồ Mermaid cho routing, root-only, focused, collaborative, full orchestration, debug, deadline, tiết kiệm, đổi scope và Jev-assisted.
-- 8 role có namespace trong `profiles/adaptive/codex/agents/`; skill vẫn dùng được nếu không cài role.
+- 9 role có namespace trong `profiles/adaptive/codex/agents/`, gồm `ao_deepseek_worker` để chuyển task giới hạn sang DSH; skill vẫn dùng được nếu không cài role.
+- Policy DeepSeek-first có điều kiện: task nhỏ hoặc delegation không phù hợp có thể ở Root; Codex fallback chọn theo năng lực và model pin thực tế; handoff có kiểm tra writer và nghiệm thu độc lập.
 - Hai profile tài nguyên: `adaptive` (capacity 4) và `adaptive-max-2-subagents` (capacity 2); dùng chung skill và model bindings hiện tại. Profile không ép topology.
 - Template task/delegation/run record, hướng dẫn model/evidence, protocol đánh giá và coding fixture.
 - [Graph snapshot](skills/adaptive-agent-orchestrator/assets/graph-record.md) theo workstream, kiểm tra ownership/handoff và harness khảo sát riêng biệt; [gate runtime và coverage](docs/validation/AGENT-GRAPH-IMPLEMENTATION-2026-10-01.md) được ghi rõ, chưa coi là multi-agent pass.
@@ -48,7 +49,7 @@ Cần Python 3.11 trở lên, không cần package bên thứ ba. Giải nén ZI
 .\setup.ps1
 ```
 
-Setup hỏi profile, skill entrypoint, 8 role tùy chọn, có cài preset runtime vào file riêng hay không (mặc định không), Codex home đích và thư mục project cần đăng ký skill. Sau khi cài thành công, setup tự thêm block chỉ dẫn vào cuối `AGENTS.md` của project đã chọn; giữ nguyên nội dung cũ, không thêm trùng khi chạy lại. Enter tại bước chọn project để bỏ qua. Mặc định Codex home dùng `$CODEX_HOME` hoặc `~/.codex`. Muốn cài không tương tác thì dùng installer trực tiếp:
+Setup hỏi profile, skill entrypoint, 9 role tùy chọn, có cài preset runtime vào file riêng hay không (mặc định không), Codex home đích và thư mục project cần đăng ký skill. Sau khi cài thành công, setup tự thêm block chỉ dẫn vào cuối `AGENTS.md` của project đã chọn; giữ nguyên nội dung cũ, không thêm trùng khi chạy lại. Enter tại bước chọn project để bỏ qua. Mặc định Codex home dùng `$CODEX_HOME` hoặc `~/.codex`. Muốn cài không tương tác thì dùng installer trực tiếp:
 
 ```sh
 python3 scripts/manage.py install
@@ -57,6 +58,8 @@ python3 scripts/register_project.py --project /path/to/project --skill both
 ```
 
 Mặc định cài vào `$CODEX_HOME` hoặc `~/.codex`. Dùng `--target PATH` để chọn Codex home khác. Chỉ cài một skill bằng `--skill astra-orchestrator` hoặc `--skill adaptive-agent-orchestrator`. Chỉ cài skill không cài role bằng `--parts skills`; chỉ cài role bằng `--parts roles`.
+
+Nếu chọn roles, installer cũng cài helper `scripts/deepseek_worker.py` và process guard. Role `ao_deepseek_worker` gọi `dsh --profile headless` đồng bộ; mặc định read-only, trả kết quả cuối và evidence ngắn gọn. Chỉ bật `workspace-write` khi root giao rõ ownership. Đây không phải native Codex model/MCP; prompt và file liên quan mà DeepSeek đọc sẽ rời máy để tới dịch vụ DeepSeek. Không giao secrets.
 
 Installer không sửa `config.toml`. Nếu đích đã có nội dung khác, installer dừng an toàn; chỉ thay khi truyền `--replace`, và bản cũ được giữ backup trong `.adaptive-agent-orchestrator-backups/`. Mở phiên Codex mới sau khi cài để runtime nhận skill/role.
 

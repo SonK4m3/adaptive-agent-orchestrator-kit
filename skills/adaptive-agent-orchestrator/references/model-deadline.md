@@ -1,5 +1,7 @@
 # Resource policy
 
+For coding execution, apply the [DeepSeek-first routing policy](deepseek-first.md) first. The Codex roles, capability examples and topology diagrams below describe planning or Codex fallback; they do not override the coding route or existing model pins.
+
 Priority is fulfillment, then time, then cost. Deadline is optional; never invent one. Record duration versus absolute timestamp and timezone when supplied. A hard budget remains a constraint even though cost ranks third.
 
 ## Model choices are initial hypotheses

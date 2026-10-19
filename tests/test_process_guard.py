@@ -6,12 +6,28 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 from process_guard import spawn_process
+import process_guard
 
 
 class ProcessGuardTests(unittest.TestCase):
+    def test_attachment_failure_preserves_error_and_always_closes_guard(self):
+        for kill_error in (ProcessLookupError('already exited'), OSError('kill failed')):
+            with self.subTest(error=type(kill_error).__name__):
+                proc, guard = Mock(), Mock()
+                guard.attach.side_effect = RuntimeError('original attachment failure')
+                proc.kill.side_effect = kill_error
+                guard.close.side_effect = OSError('cleanup failure')
+                with patch.object(process_guard, 'ProcessGuard', return_value=guard), \
+                        patch.object(process_guard.subprocess, 'Popen', return_value=proc):
+                    with self.assertRaisesRegex(RuntimeError, 'original attachment failure'):
+                        spawn_process(['fake'])
+                proc.wait.assert_called_once_with(timeout=2)
+                guard.close.assert_called_once()
+
     @unittest.skipUnless(os.name == 'nt', 'Windows job live check; POSIX covered by mocked group tests')
     def test_job_close_kills_descendant_after_normal_parent_exit(self):
         from ctypes import wintypes

@@ -1,6 +1,6 @@
 # Adaptive Agent Orchestrator for Codex
 
-An installable Codex skill kit for software engineering. It helps Codex choose a useful subagent team for each task, adapt the team when new evidence changes the plan, and verify the integrated result.
+An installable Codex skill kit for software engineering. It chooses the smallest useful L0–L3 work topology, routes suitable bounded coding to DeepSeek Harness through an optional wrapper, adapts when evidence changes the plan, and keeps integration and acceptance with Root.
 
 **Priority:** meet the requirements correctly and completely → meet the deadline → use tokens and money efficiently.
 
@@ -10,7 +10,8 @@ Diagrams in this repository are reference patterns, not executable workflows. Ac
 
 - Two self-contained orchestration entrypoints: `adaptive-agent-orchestrator` and `astra-orchestrator`, plus the installable `adaptive-orchestrator-setup` skill.
 - Ten Mermaid diagrams for routing, root-only work, focused delegation, parallel slices, staged high-risk work, debugging, deadlines, economy, scope changes, and optional Jev-assisted routing.
-- Eight optional, namespaced agent definitions: `ao_explorer`, `ao_researcher`, `ao_worker`, `ao_worker_complex`, `ao_worker_critical`, `ao_tester`, `ao_reviewer`, and `ao_design_advisor`.
+- Nine optional, namespaced agent definitions, including `ao_deepseek_worker` for a bounded external DSH handoff.
+- Conditional DeepSeek-first coding policy with root-direct handling for trivial or unsuitable delegation, model-neutral Codex fallback, exclusive writer handoff, and independent acceptance.
 - Two resource profiles: `adaptive` (capacity 4) and `adaptive-max-2-subagents` (capacity 2). Both retain adaptive topology and the existing role/model bindings.
 - Task, delegation, and run-record templates; model/deadline guidance; evidence and evaluation references; and a small coding fixture.
 - Compact [graph snapshots](skills/adaptive-agent-orchestrator/assets/graph-record.md), structural ownership/handoff checks and an isolated experimental harness. [Current runtime gate and coverage](docs/validation/AGENT-GRAPH-IMPLEMENTATION-2026-10-01.md) remain explicit.
@@ -171,12 +172,16 @@ By default, the kit installs into the Codex home, not into a target project:
 │   ├── ao_worker_critical.toml
 │   ├── ao_tester.toml
 │   ├── ao_reviewer.toml
-│   └── ao_design_advisor.toml
+│   ├── ao_design_advisor.toml
+│   └── ao_deepseek_worker.toml
+├── scripts/
+│   ├── deepseek_worker.py
+│   └── process_guard.py
 └── .adaptive-agent-orchestrator/
     └── install.json
 ```
 
-`<CODEX_HOME>` is `$CODEX_HOME` when configured, otherwise `~/.codex`. `--target PATH` overrides it. The receipt tracks only components managed by this installer; unrelated files and Codex settings are left alone.
+`<CODEX_HOME>` is `$CODEX_HOME` when configured, otherwise `~/.codex`. `--target PATH` overrides it. The receipt tracks only components managed by this installer; unrelated files and Codex settings are left alone. The optional `ao_deepseek_worker` role delegates one bounded task to an installed `dsh` CLI; it defaults to read-only and returns only the final answer plus run evidence. Select `--parts roles` (or all) to install the role and helper scripts. DeepSeek sees the task and any repository context it reads, so do not delegate secrets. This is a synchronous CLI handoff, not a native Codex model or MCP server.
 
 ## Use the skill
 
@@ -213,6 +218,7 @@ The bundled roles have namespaced IDs to reduce collisions with existing agents.
 | `ao_tester` | Reproduce behavior and gather test evidence | Test artifacts only unless given a specific assignment |
 | `ao_reviewer` | Independently inspect a material change | Read-only review |
 | `ao_design_advisor` | Analyze a bounded architecture trade-off | Read-only advice; root makes the decision |
+| `ao_deepseek_worker` | Delegate one task through DeepSeek Harness | External one-shot CLI; read-only by default, root verifies any returned evidence |
 
 The configured models can be inspected in [`profiles/adaptive/codex/agents/`](profiles/adaptive/codex/agents/). Confirm model and subagent availability in the actual Codex account/runtime. Activating an optional resource preset requests its concurrency cap in a new session; it does not change the current session, root model, permissions, or billing limits. No measured token or latency savings are claimed.
 

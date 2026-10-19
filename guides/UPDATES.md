@@ -49,7 +49,7 @@ Requests use a 10-second socket timeout, a 60-second read-loop deadline, no retr
 entries, 16 MiB per file and 128 MiB expanded total. The updater preflights member names,
 duplicate/case-colliding paths, file/directory collisions, traversal, Windows-invalid names,
 links, reparse points, encryption and unsupported entry types before member extraction.
-It checks source layout, eight role files, matching VERSION/tag/manifest version and exact
+It checks source layout, nine role files, matching VERSION/tag/manifest version and exact
 distribution-file hashes before execution. It does not use `extractall` or import downloaded
 Python for validation. Source-layout/manifest validation follows safe extraction, not before
 download. These are integrity checks, not a signature or independent proof that release code

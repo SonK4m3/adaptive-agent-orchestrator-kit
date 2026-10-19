@@ -73,7 +73,9 @@ class ReleaseLifecycleTests(unittest.TestCase):
             self.assertIn(b'](.agents/skills/adaptive-agent-orchestrator/SKILL.md)', local_bytes)
             self.run_cli(registration, '--project', str(local_project), '--project-skills', '--skill', 'adaptive-agent-orchestrator')
             self.assertEqual(local_instructions.read_bytes(), local_bytes)
-            self.assertEqual(len(list((local_home / 'agents').glob('ao_*.toml'))), 8)
+            self.assertEqual(len(list((local_home / 'agents').glob('ao_*.toml'))), 9)
+            self.assertTrue((local_home / 'scripts/deepseek_worker.py').is_file())
+            self.assertTrue((local_home / 'scripts/process_guard.py').is_file())
             self.assertFalse((local_home / 'config.toml').exists())
             self.assertFalse((local_home / 'skills').exists())
             for name in ('adaptive-agent-orchestrator', 'astra-orchestrator'):

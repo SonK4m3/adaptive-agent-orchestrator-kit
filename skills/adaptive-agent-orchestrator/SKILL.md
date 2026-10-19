@@ -1,13 +1,21 @@
 ---
 name: adaptive-agent-orchestrator
-description: Choose and adapt Codex software workstreams when delegation is requested or independent outputs, context load or verification risk justify coordination. Prioritize complete requirements, then time, then cost; keep small or tightly coupled work root-only.
+description: Hybrid coding orchestration: default to DeepSeek-first delegation with Astra/Luna fallback. Coordinate scope, exclusive ownership and independent verification; adapt topology to the task.
 ---
 
-# Adaptive coding orchestration — v2
+# Adaptive coding orchestration — v3 routing policy
+
+## Model routing and delegation
+
+Keep the topology adaptive: L0 root only; L1 one useful worker or specialist; L2 independent workstreams; L3 staged coordination for material complexity or risk. A topology level describes workstreams, not a required number of Codex subagents. Zero children is valid.
+
+For implementation, first check task constraints and execution capability, then task clarity, risk, and whether delegation provides a real benefit. If a task is tiny, tightly coupled, sensitive, or delegation adds overhead, root may implement directly. When implementation is clear and external sharing is authorized, DeepSeek is the default implementation worker through the existing wrapper. Root may call it directly; no Luna supervisor is required. Larger work may be split into bounded DeepSeek tasks, sequentially when they depend on each other and in parallel only when ownership and outputs are independent. See [Model Routing & Delegation Policy](references/deepseek-first.md).
+
+Use Luna exploration or research only when resolving uncertainty can change the implementation or requires current external facts. Use Astra for material architecture or independent review risk. Specialists are optional and demand-driven. Root retains scope, integration, diff review, and final acceptance regardless of its configured model.
 
 ## Invocation and output contract
 
-Consider this workflow without requiring an explicit invocation when coordination adds value. Skill selection is not a requirement to spawn agents. For small or tightly coupled work, complete it at root (L0); no graph, contract file, topology announcement or separate report is mandatory. Still give a concise outcome, actual checks and material limitations. Do not create coordination artifacts just to demonstrate skill use.
+Consider this workflow without requiring an explicit invocation when coordination adds value. Skill selection is not a requirement to spawn agents. For work that stays in Codex, small or tightly coupled tasks can remain at root (L0); no graph, contract file, topology announcement or separate report is mandatory. Still give a concise outcome, actual checks and material limitations. Do not create coordination artifacts just to demonstrate skill use.
 
 Inputs are the user's task, relevant project constraints, acceptance requirements and available runtime capabilities. When delegating, root briefly explains why the topology fits and each agent's concrete output and scope. Use graph records only to track coordination dependencies, ownership or handoffs, or when an audit is requested; a requested audit may also cover L0. Keep task status and missing evidence visible without prescribing a report file.
 
@@ -45,6 +53,8 @@ Use runtime-supported models and effort settings only. Existing custom roles may
 When delegating, state briefly why this topology fits the task and the concrete output each agent contributes. Multiple topologies may be valid; file count and complexity alone do not require delegation. Keep foundational roles stable and specialize expertise, scope and outputs in each work packet rather than creating a permanent role for every technology.
 
 Assign a verification owner to each acceptance criterion. Testers establish behavior through execution; reviewers independently examine assumptions, regressions and missing coverage. Select independent verification by risk, not mechanically for every worker. If a useful required role is unavailable, record the fallback and missing evidence without inventing dispatch.
+
+For coding implementation, follow the [Model Routing & Delegation Policy](references/deepseek-first.md) to choose root-direct work, useful exploration, direct DeepSeek implementation, or an authorized Codex fallback. DeepSeek is the preferred implementation worker when the task is clear, delegation adds value, and execution is feasible; it is not mandatory for trivial or unsuitable tasks. Root owns requirements, scope, planning, integration, diff review, and final acceptance regardless of its configured model. Root may invoke the existing wrapper directly; no Luna supervisor is required. Select any Codex fallback or specialist by its actual configured role and model pins, not by assuming a particular model is Root. Preserve the active authorized cwd, independently verify changed paths and tests, and keep repository privacy restrictions and model configuration unchanged.
 
 Reassess on blockers, ownership conflicts, new requirements, failed verification or deadline risk. Prefer revised contracts and existing agents; add a specialist only for a new independent output or concrete expertise gap. Stop or reassign obsolete work and update ownership before writers resume. Require observed stop/completion or acknowledged handoff evidence before a new writer takes ownership: a stop request does not prove writes ceased. Retain obsolete-work disposition and revision pointers when a graph record is in use. If a failed approach yields no new evidence, change the hypothesis, contract, resources or ownership rather than repeating it.
 
