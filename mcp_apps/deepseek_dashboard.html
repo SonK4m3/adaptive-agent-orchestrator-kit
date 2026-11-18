@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DeepSeek tasks</title>
+<style>
+  :root{color-scheme:light dark;font:14px/1.45 system-ui,sans-serif}body{margin:0;padding:16px;background:Canvas;color:CanvasText}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px}h1{font-size:18px;margin:0}
+  button{font:inherit;padding:7px 11px;border:1px solid #8888;border-radius:8px;background:transparent;color:inherit;cursor:pointer}
+  #state{margin:14px 0;padding:12px;border:1px solid #8885;border-radius:10px}.muted{opacity:.72}
+  dl{display:grid;grid-template-columns:max-content 1fr;gap:5px 14px}dt{opacity:.7}dd{margin:0;overflow-wrap:anywhere}
+</style>
+<body>
+  <header><h1>DeepSeek task</h1><button id="refresh" type="button">Refresh</button></header>
+  <section id="state" role="status" aria-live="polite">Waiting for task details from the MCP host.</section>
+  <p class="muted">Progress shows sanitized lifecycle events only. No completion percentage or ETA is inferred.</p>
+  <script>
+    (() => {
+      const box = document.querySelector('#state');
+      let latest = null;
+      const render = value => {
+        if (!value || typeof value !== 'object') return;
+        let task = value.structuredContent || value.result || value.arguments || value;
+        if (Array.isArray(task.content)) {
+          const text = task.content.find(item => item && item.type === 'text' && typeof item.text === 'string')?.text;
+          if (text) { try { task = JSON.parse(text); } catch { /* retain plain text fallback */ } }
+        }
+        latest = task;
+        const fields = ['task_id','status','attempt','session_id','failure_layer','final_reason'];
+        const dl = document.createElement('dl');
+        for (const key of fields) if (task[key] !== undefined && task[key] !== null) {
+          const dt = document.createElement('dt'); dt.textContent = key.replaceAll('_',' ');
+          const dd = document.createElement('dd'); dd.textContent = String(task[key]); dl.append(dt,dd);
+        }
+        const paths = task.changed_paths;
+        box.replaceChildren(dl.childElementCount ? dl : document.createTextNode('Task data received.'));
+        if (Array.isArray(paths) && paths.length) {
+          const heading = document.createElement('p'); heading.textContent = 'Changed paths';
+          const list = document.createElement('ul');
+          for (const path of paths.slice(0,100)) { const li=document.createElement('li'); li.textContent=String(path); list.append(li); }
+          box.append(heading,list);
+        }
+      };
+      window.addEventListener('message', event => {
+        if (event.source !== window.parent || !event.data || typeof event.data !== 'object') return;
+        const message = event.data;
+        if (message.method === 'ui/notifications/tool-input' || message.method === 'ui/notifications/tool-result') {
+          render(message.params);
+        }
+      });
+      document.querySelector('#refresh').addEventListener('click', () => {
+        if (latest?.task_id) window.parent.postMessage({jsonrpc:'2.0',id:Date.now(),method:'tools/call',params:{name:'deepseek_task_status',arguments:{task_id:latest.task_id}}}, '*');
+      });
+      window.parent.postMessage({jsonrpc:'2.0',id:1,method:'ui/initialize',params:{appInfo:{name:'DeepSeek task dashboard',version:'1'},appCapabilities:{}}}, '*');
+    })();
+  </script>
+</body>
+</html>

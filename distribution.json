@@ -7,11 +7,12 @@
     "scripts": [".py"],
     "tests": [".py"],
     "eval": [".md", ".mjs", ".json", ".py", ".txt"],
-    "docs": [".md"]
+    "docs": [".md"],
+    "mcp_apps": [".html"]
   },
   "include": [
-    "skills", "profiles", "guides", "scripts", "tests", "eval", "docs",
-    "AGENTS.md", "README.md", "README.vi.md", "VERSION", "VALIDATION.md",
+    "skills", "profiles", "guides", "scripts", "tests", "eval", "docs", "mcp_apps",
+    "AGENTS.md", "README.md", "README.vi.md", "VERSION", "VALIDATION.md", "requirements-mcp-http.txt",
     "LICENSE", "UPSTREAM-LICENSE.txt", "ATTRIBUTION.md", "CONTRIBUTING.md",
     "SECURITY.md", "setup.ps1", "setup.sh", "update.ps1", "update.sh", "distribution.json"
   ]

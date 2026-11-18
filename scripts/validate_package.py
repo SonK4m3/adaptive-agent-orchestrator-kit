@@ -60,6 +60,10 @@ roles = list((root / 'profiles/adaptive/codex/agents').glob('ao_*.toml'))
 assert len(roles) == 9
 assert any(role.stem == 'ao_deepseek_worker' for role in roles)
 assert (root / 'scripts/deepseek_worker.py').is_file()
+assert (root / 'scripts/deepseek_jobs.py').is_file()
+assert (root / 'scripts/deepseek_mcp.py').is_file()
+assert (root / 'scripts/deepseek_mcp_http.py').is_file()
+assert (root / 'mcp_apps/deepseek_dashboard.html').is_file()
 for path in roles:
     role = tomllib.loads(path.read_text(encoding='utf-8'))
     assert role['name'] == path.stem

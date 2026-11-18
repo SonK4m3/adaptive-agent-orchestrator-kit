@@ -7,6 +7,7 @@ read-only DSH permission mode, and contains the child process tree on timeout.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import os
 import re
@@ -23,6 +24,7 @@ MAX_STDOUT = 1024 * 1024
 MAX_STDERR = 256 * 1024
 MAX_EVENT = 64 * 1024
 MAX_EVENTS = 4096
+MAX_PROGRESS_BYTES = 1024 * 1024
 # No wildcard DSH_*, provider keys, shell startup or runtime injection variables.
 ENV_ALLOWLIST = frozenset({
     "PATH", "PATHEXT", "SYSTEMROOT", "WINDIR", "COMSPEC", "SYSTEMDRIVE",
@@ -59,6 +61,63 @@ def unique_object(pairs):
 def reject_constant(value):
     raise ValueError("nonfinite JSON")
 
+
+class ProgressJournal:
+    """Append bounded, sanitized lifecycle events without answer or tool content."""
+
+    def __init__(self, path: str | Path):
+        self.path = Path(path).expanduser()
+        if not self.path.is_absolute() or self.path.exists() or self.path.is_symlink():
+            raise ValueError("progress file must be a new absolute path")
+        if not self.path.parent.is_dir():
+            raise ValueError("progress file parent directory must exist")
+        self.stream = self.path.open("xb")
+        if os.name != "nt":
+            os.chmod(self.path, 0o600)
+        self.written = 0
+        self.errors = 0
+        self.bytes_written = 0
+
+    def observe(self, raw_line: bytes) -> None:
+        if self.written >= MAX_EVENTS or len(raw_line) > MAX_EVENT:
+            return
+        try:
+            event = json.loads(raw_line.decode("utf-8", errors="strict"),
+                               object_pairs_hook=unique_object, parse_constant=reject_constant)
+            if not isinstance(event, dict) or event.get("type") not in EVENT_TYPES:
+                return
+            kind = event["type"]
+            record = {"event_type": kind,
+                      "observed_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")}
+            if kind == "status":
+                phase = event.get("phase")
+                if isinstance(phase, str) and re.fullmatch(r"[a-z_]{1,40}", phase):
+                    record["phase"] = phase
+            if kind == "session":
+                session_id = event.get("sessionId", event.get("session_id", event.get("id")))
+                if isinstance(session_id, str) and re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", session_id):
+                    record["session_id"] = session_id
+            if kind == "final":
+                reason = event.get("reason")
+                reason = reason.get("kind") if isinstance(reason, dict) else reason
+                if isinstance(reason, str) and re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", reason):
+                    record["final_reason"] = reason
+                session_id = event.get("sessionId", event.get("session_id"))
+                if isinstance(session_id, str) and re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", session_id):
+                    record["session_id"] = session_id
+            payload = (json.dumps(record, ensure_ascii=True, allow_nan=False) + "\n").encode("utf-8")
+            if self.bytes_written + len(payload) > MAX_PROGRESS_BYTES:
+                return
+            self.stream.write(payload)
+            self.stream.flush()
+            self.written += 1
+            self.bytes_written += len(payload)
+        except (OSError, UnicodeError, ValueError, RecursionError):
+            self.errors += 1
+
+    def close(self) -> None:
+        self.stream.close()
+
 ERROR_SIGNALS = {
     "authentication": ("unauthorized", "401", "invalid api key"),
     "access_policy": ("permission denied", "approval required", "blocked by policy", "sandbox"),
@@ -90,9 +149,11 @@ def final_text(event: dict) -> str | None:
 def read_result(stdout: bytes) -> dict:
     """Fail closed on malformed, conflicting or oversized NDJSON; never echo bad input."""
     answer = session_id = None
+    final_reason = final_session_id = None
     event_types = []
     errors = 0
     job_failed = False
+    final_seen = False
     lines = stdout.splitlines()
     if len(lines) > MAX_EVENTS:
         errors += 1
@@ -125,17 +186,31 @@ def read_result(stdout: bytes) -> dict:
                 session_id = candidate
         elif kind == "final":
             candidate = final_text(event)
-            if answer is not None or candidate is None:
+            reason_data = event.get("reason")
+            reason = reason_data.get("kind") if isinstance(reason_data, dict) else reason_data
+            final_sid = event.get("sessionId", event.get("session_id"))
+            valid_reason = reason_data is None or (
+                isinstance(reason_data, (str, dict)) and isinstance(reason, str)
+                and re.fullmatch(r"[A-Za-z0-9_.:-]{1,80}", reason))
+            if (final_seen or candidate is None or not valid_reason
+                    or (final_sid is not None and (not isinstance(final_sid, str)
+                        or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", final_sid)))):
                 errors += 1
             else:
+                final_seen = True
                 answer = candidate
+                final_reason = reason
+                final_session_id = final_sid
         elif kind == "error":
             job_failed = True
+    if final_session_id is not None and session_id is not None and final_session_id != session_id:
+        errors += 1
     return {"answer": answer, "session_id": session_id, "event_types": event_types,
+            "final_reason": final_reason, "final_session_id": final_session_id,
             "protocol_errors": errors, "job_failed": job_failed}
 
 
-def capture(proc, guard, task, timeout, stdout_limit, stderr_limit):
+def capture(proc, guard, task, timeout, stdout_limit, stderr_limit, on_stdout_line=None):
     """Drain both pipes concurrently with fixed memory caps, including blocked stdin."""
     buffers = [bytearray(), bytearray()]
     counts = [0, 0]
@@ -144,6 +219,8 @@ def capture(proc, guard, task, timeout, stdout_limit, stderr_limit):
     limits = (stdout_limit, stderr_limit)
 
     def drain(pipe, index):
+        pending = bytearray()
+        dropping_line = False
         try:
             while chunk := pipe.read1(4096):
                 counts[index] += len(chunk)
@@ -152,6 +229,19 @@ def capture(proc, guard, task, timeout, stdout_limit, stderr_limit):
                 if counts[index] > limits[index]:
                     overflow.set()
                     break
+                if index == 0 and on_stdout_line is not None:
+                    for byte in chunk:
+                        if byte == 10:
+                            if not dropping_line:
+                                on_stdout_line(bytes(pending).rstrip(b"\r"))
+                            pending.clear()
+                            dropping_line = False
+                        elif not dropping_line:
+                            if len(pending) < MAX_EVENT:
+                                pending.append(byte)
+                            else:
+                                pending.clear()
+                                dropping_line = True
         except (OSError, ValueError):
             io_failed.set()
         finally:
@@ -235,11 +325,15 @@ def main(argv: list[str] | None = None) -> int:
                         default="read-only", help="DSH permission preset; read-only by default")
     parser.add_argument("--timeout-seconds", type=int, default=600,
                         help="maximum run time (1-600 seconds; default: 600)")
+    parser.add_argument("--session-id", help="explicitly resume an existing DSH session")
+    parser.add_argument("--progress-file", help="new absolute path for bounded, sanitized lifecycle events")
     parser.add_argument("--max-stdout-bytes", type=int, default=MAX_STDOUT)
     parser.add_argument("--max-stderr-bytes", type=int, default=MAX_STDERR)
     args = parser.parse_args(argv)
     if not 1 <= args.timeout_seconds <= 600:
         parser.error("--timeout-seconds must be between 1 and 600")
+    if args.session_id is not None and not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", args.session_id):
+        parser.error("--session-id must contain 1-128 letters, digits, '_', '.', ':', or '-'")
     if not 1 <= args.max_stdout_bytes <= MAX_STDOUT or not 1 <= args.max_stderr_bytes <= MAX_STDERR:
         parser.error("output limits must be positive and no larger than the defaults")
 
@@ -261,34 +355,60 @@ def main(argv: list[str] | None = None) -> int:
         return 127
 
     environment = child_environment(os.environ, args.permission_mode)
-    command: str | list[str] = [executable, "--profile", "headless", "--json", "-"]
+    command: list[str] = [executable, "--profile", "headless"]
+    if args.session_id is not None:
+        command.extend(["--session-id", args.session_id])
+    command.extend(["--json", "-"])
+    command_string: str | list[str] = command
     shell = False
     if os.name == "nt" and Path(executable).suffix.lower() in {".cmd", ".bat"}:
         # Windows batch launchers require cmd.exe; delegated task content stays on stdin.
-        command = subprocess.list2cmdline(command)
+        command_string = subprocess.list2cmdline(command)
         shell = True
     started = time.monotonic()
     proc = guard = None
     permissions = {"requested_permission_mode": args.permission_mode,
                    "effective_permission_mode": None,
                    "permission_verification": "unverified"}
+    progress = None
     try:
-        proc, guard = spawn_process(command, cwd=Path.cwd(), env=environment,
+        if args.progress_file:
+            progress = ProgressJournal(args.progress_file)
+        proc, guard = spawn_process(command_string, cwd=Path.cwd(), env=environment,
                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE, shell=shell)
         stdout, stderr, counts, reason, cleanup_errors = capture(
             proc, guard, task.encode("utf-8"), args.timeout_seconds,
-            args.max_stdout_bytes, args.max_stderr_bytes)
+            args.max_stdout_bytes, args.max_stderr_bytes,
+            on_stdout_line=progress.observe if progress else None)
+        if progress:
+            progress.close()
         guard = None  # capture owns cleanup, including failure paths.
         elapsed_ms = round((time.monotonic() - started) * 1000)
         parsed = read_result(stdout)
-        success = not reason and not cleanup_errors and proc.returncode == 0 and parsed["answer"] and not (
-            parsed["protocol_errors"] or parsed["job_failed"])
+        dsh_rejected_final = parsed["final_reason"] != "completed"
+        success = (not reason and not cleanup_errors and proc.returncode == 0
+                   and parsed["answer"] and not dsh_rejected_final
+                   and not (parsed["protocol_errors"] or parsed["job_failed"]))
+        if reason in {"timeout", "output_limit", "io_error"}:
+            failure_layer = "wrapper"
+        elif parsed["protocol_errors"]:
+            failure_layer = "protocol"
+        elif proc.returncode != 0 or parsed["job_failed"] or dsh_rejected_final or not parsed["answer"]:
+            failure_layer = "dsh"
+        elif cleanup_errors:
+            failure_layer = "wrapper_cleanup"
+        else:
+            failure_layer = None
         report = {"status": reason or ("cleanup_error" if cleanup_errors else
                                        "completed" if success else "failed"),
+                  "failure_layer": failure_layer,
                   "exit_code": proc.returncode, "elapsed_ms": elapsed_ms,
                   **permissions,
                   "session_id": parsed["session_id"], "event_types": parsed["event_types"],
+                  "requested_session_id": args.session_id,
+                  "final_reason": parsed["final_reason"],
+                  "final_session_id": parsed["final_session_id"],
                   "session_evidence": "reported" if parsed["session_id"] else "missing",
                   "cleanup_errors": cleanup_errors,
                   "protocol_errors": parsed["protocol_errors"],
@@ -297,16 +417,21 @@ def main(argv: list[str] | None = None) -> int:
                   "stderr_bytes_suppressed": counts[1],
                   "output_capture_complete": reason is None and not cleanup_errors,
                   "stderr_signals": classify_stderr(stderr)}
+        if progress:
+            report["progress_events_written"] = progress.written
+            report["progress_write_errors"] = progress.errors
         if success:
             report["answer"] = parsed["answer"]
         emit(report)
         return 0 if success else (124 if reason == "timeout" else 1)
-    except OSError as exc:
+    except (OSError, ValueError) as exc:
         elapsed_ms = round((time.monotonic() - started) * 1000)
         emit({"status": "failed", "error_type": type(exc).__name__,
               "elapsed_ms": elapsed_ms, **permissions})
         return 1
     finally:
+        if progress is not None and not progress.stream.closed:
+            progress.close()
         if guard is not None:
             try:
                 guard.close()

@@ -178,13 +178,18 @@ By default, the kit installs into the Codex home, not into a target project:
 │   ├── ao_design_advisor.toml
 │   └── ao_deepseek_worker.toml
 ├── scripts/
+│   ├── deepseek_jobs.py
+│   ├── deepseek_mcp.py
+│   ├── deepseek_mcp_http.py
 │   ├── deepseek_worker.py
 │   └── process_guard.py
+├── mcp_apps/
+│   └── deepseek_dashboard.html
 └── .adaptive-agent-orchestrator/
     └── install.json
 ```
 
-`<CODEX_HOME>` is `$CODEX_HOME` when configured, otherwise `~/.codex`. `--target PATH` overrides it. The receipt tracks only components managed by this installer; unrelated files and Codex settings are left alone. The optional `ao_deepseek_worker` role delegates one bounded task to an installed `dsh` CLI; it requests read-only and returns only the final answer plus run evidence. Select `--parts roles` (or all) to install the role and helper scripts. DeepSeek sees the task and any repository context it reads, so do not delegate secrets. This is a synchronous CLI handoff, not a native Codex model or MCP server. See the [team onboarding guide](guides/DEEPSEEK-CODEX-ONBOARDING.md) for DSH installation, credentials, smoke checks and Codex setup.
+`<CODEX_HOME>` is `$CODEX_HOME` when configured, otherwise `~/.codex`. `--target PATH` overrides it. The receipt tracks only components managed by this installer; unrelated files and Codex settings are left alone. The optional `ao_deepseek_worker` role can use the synchronous CLI wrapper or, when explicitly configured, the async MCP bridge. The bridge returns a durable task ID and a reviewable patch from an isolated job workspace; it never applies changes to the source checkout. Select `--parts roles` (or all) to install the role and helper scripts. DeepSeek sees the task and selected repository inputs, so do not delegate secrets. DSH permission enforcement remains unverified, and the isolated workspace is not an OS sandbox. The optional Streamable HTTP pilot adds a shared job manager and MCP Apps dashboard for clients connected to the same local server; it has no authentication and must not be exposed remotely. See [installation details](guides/INSTALLATION.md#optional-asynchronous-deepseek-mcp-bridge) and the [team onboarding guide](guides/DEEPSEEK-CODEX-ONBOARDING.md).
 
 ## Use the skill
 
@@ -221,7 +226,7 @@ The bundled roles have namespaced IDs to reduce collisions with existing agents.
 | `ao_tester` | Reproduce behavior and gather test evidence | Test artifacts only unless given a specific assignment |
 | `ao_reviewer` | Independently inspect a material change | Read-only review |
 | `ao_design_advisor` | Analyze a bounded architecture trade-off | Read-only advice; root makes the decision |
-| `ao_deepseek_worker` | Delegate one task through DeepSeek Harness | External one-shot CLI; read-only by default, root verifies any returned evidence |
+| `ao_deepseek_worker` | Delegate one task through DeepSeek Harness | Optional async MCP task IDs and isolated patches, with synchronous CLI fallback; root verifies evidence |
 
 The configured models can be inspected in [`profiles/adaptive/codex/agents/`](profiles/adaptive/codex/agents/). Confirm model and subagent availability in the actual Codex account/runtime. Activating an optional resource preset requests its concurrency cap in a new session; it does not change the current session, root model, permissions, or billing limits. No measured token or latency savings are claimed.
 

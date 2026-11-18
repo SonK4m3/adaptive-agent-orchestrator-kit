@@ -12,7 +12,78 @@ Setup also asks for a resource profile and an optional named preset, defaulting 
 
 `CODEX_HOME` can point at a custom Codex home; otherwise the installer uses `~/.codex`. `--target` overrides both. Components are installed into `skills/<skill-name>` and `agents/ao_*.toml`. The role files are optional and can be omitted with `--parts skills`. Selecting roles also installs the DeepSeek handoff helper and its process-tree guard under `scripts/`; `ao_deepseek_worker` uses these only when assigned a bounded task and `dsh` is available. The helper requests `read-only`; its report leaves effective DSH permissions unverified. See the [DeepSeek + Codex teammate onboarding guide](DEEPSEEK-CODEX-ONBOARDING.md) for installing DSH, configuring credentials, a one-shot smoke check and first Codex handoff. It returns only the final response and compact run evidence, suppressing raw reasoning/event output.
 
-To add only the DeepSeek bridge role to an existing Codex home without replacing other role files, run `python scripts/manage.py install --parts roles --role ao_deepseek_worker`. This is a Codex-home install, not a global `config.toml` change; start a new Codex session to discover the agent. The installer refuses a conflicting existing file unless `--replace` is explicitly supplied, and preserves replaced content in a recoverable backup.
+To add only the DeepSeek bridge role to an existing Codex home without replacing other role files, run `python scripts/manage.py install --parts roles --role ao_deepseek_worker`. This installs the synchronous wrapper, async MCP server, durable job store and process-tree guard under that Codex home; it does not edit any Codex configuration. The installer refuses a conflicting existing file unless `--replace` is explicitly supplied, and preserves replaced content in a recoverable backup.
+
+### Optional asynchronous DeepSeek MCP bridge
+
+The MCP bridge avoids holding one long-running Codex tool call: `deepseek_task_start`
+returns a task ID, then status/wait/list/result tools read durable progress and a
+completed patch. Follow-up continues the stored DSH session only when explicitly
+requested. The bridge copies only the selected repository-relative input paths into
+a job workspace under `<CODEX_HOME>/deepseek-worker/jobs`; it omits `.env*`, `.git`,
+`.codex`, common dependency/build caches and recognized credential files. Results and
+patches stay in that job-data directory and are never applied to the source checkout.
+
+Opt in by installing the role files, then manually adding a server entry to the
+target project's trusted `.codex/config.toml`. Use an absolute path to the installed
+server script for each machine. Keep the project root as `cwd` and preserve existing
+settings:
+
+```toml
+[mcp_servers.deepseek_async]
+command = "python"
+args = ["<absolute-CODEX_HOME>/scripts/deepseek_mcp.py"]
+cwd = "<absolute-target-project>"
+startup_timeout_sec = 10
+tool_timeout_sec = 60
+enabled_tools = [
+  "deepseek_task_start",
+  "deepseek_task_status",
+  "deepseek_task_list",
+  "deepseek_task_wait",
+  "deepseek_task_followup",
+  "deepseek_task_result",
+  "deepseek_task_cancel",
+]
+```
+
+Codex reads project `.codex/config.toml` only for trusted projects. Restart/reload
+Codex after the manual config change. To disable the bridge, remove only the
+`[mcp_servers.deepseek_async]` table and its child tables from that project config;
+uninstalling the optional role removes receipt-managed scripts, but does not edit
+Codex configuration. The synchronous worker remains available when this MCP server
+is not configured.
+
+#### Shared HTTP server and dashboard pilot
+
+The optional HTTP mode lets Codex and another MCP client use the same running job
+manager, so task IDs and lifecycle state are shared. Install its extra dependency
+with `python -m pip install -r requirements-mcp-http.txt`, then start it from the
+target project:
+
+```powershell
+python <CODEX_HOME>/scripts/deepseek_mcp_http.py --workspace-root <absolute-target-project>
+```
+
+It binds to `127.0.0.1:8765` and exposes Streamable HTTP at `/mcp`. Configure both
+clients to this same endpoint. The server pins one workspace at startup; callers
+cannot choose arbitrary workspace paths. Its dashboard UI is returned with task
+tool results, while tools retain text/JSON results for hosts without MCP Apps UI.
+The stdio bridge remains available, but it is a separate manager; jobs started by
+it are not live-owned by the HTTP manager. Do not run both against the same job
+root while jobs are active.
+
+This is a local development pilot only. Do not expose the endpoint with a tunnel or
+public listener: this version has no authentication layer. ChatGPT's remote MCP
+connection and actual iframe rendering are not verified by package tests and need
+a separately secured HTTPS deployment and ChatGPT connection setup.
+
+The bridge's isolated workspace is an output boundary, not an OS sandbox. DSH still
+runs with its own user identity and may be able to access other files/services under
+that identity. Review selected inputs before sending them to the configured DeepSeek
+service. `read-only` / `workspace-write` records the requested DSH mode; effective
+permissions remain unverified. Codex must inspect the returned patch and run its own
+acceptance checks before applying it.
 
 On conflict, inspect the existing destination first. `--replace` makes a recoverable copy and updates only the named components. A receipt at `.adaptive-agent-orchestrator/install.json` records hashes for components managed by this kit. Uninstall acts only on receipt-listed paths; modified contents require `--force` and are backed up. Restore a backup with `python3 scripts/manage.py restore BACKUP_ID`; restoration also preserves the current contents. `config.toml`, other agent definitions, and unrelated skills are not managed.
 

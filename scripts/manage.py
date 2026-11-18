@@ -121,7 +121,9 @@ def managed_path(rel_text: str) -> Path:
         raise RuntimeError('Invalid managed component path')
     rel = Path(rel_text)
     allowed = {f'skills/{name}' for name in SKILLS} | {f'{name}.config.toml' for name in PROFILES}
-    allowed.update({'scripts/deepseek_worker.py', 'scripts/process_guard.py'})
+    allowed.update({'scripts/deepseek_worker.py', 'scripts/deepseek_jobs.py',
+                    'scripts/deepseek_mcp.py', 'scripts/deepseek_mcp_http.py', 'scripts/process_guard.py',
+                    'mcp_apps/deepseek_dashboard.html', 'requirements-mcp-http.txt'})
     normalized = rel.as_posix()
     role = re.fullmatch(r'agents/ao_[A-Za-z0-9_]+\.toml', normalized)
     if rel.is_absolute() or '..' in rel.parts or (normalized not in allowed and not role):
@@ -151,7 +153,12 @@ def components(args: argparse.Namespace) -> list[tuple[Path, Path]]:
         result.extend((p, Path("agents") / p.name) for p in role_paths)
         if any(p.stem == "ao_deepseek_worker" for p in role_paths):
             result.append((ROOT / "scripts/deepseek_worker.py", Path("scripts/deepseek_worker.py")))
+            result.append((ROOT / "scripts/deepseek_jobs.py", Path("scripts/deepseek_jobs.py")))
+            result.append((ROOT / "scripts/deepseek_mcp.py", Path("scripts/deepseek_mcp.py")))
+            result.append((ROOT / "scripts/deepseek_mcp_http.py", Path("scripts/deepseek_mcp_http.py")))
             result.append((ROOT / "scripts/process_guard.py", Path("scripts/process_guard.py")))
+            result.append((ROOT / "mcp_apps/deepseek_dashboard.html", Path("mcp_apps/deepseek_dashboard.html")))
+            result.append((ROOT / "requirements-mcp-http.txt", Path("requirements-mcp-http.txt")))
     if getattr(args, "with_profile_config", False):
         result.append((ROOT / profile["config"], Path(f"{profile['name']}.config.toml")))
     return result

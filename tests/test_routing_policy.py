@@ -103,7 +103,10 @@ class RoutingPolicyTests(unittest.TestCase):
     def test_wrapper_cwd_and_permission_limits_are_documented(self):
         text = policy_text()
         self.assertIn('wrapper cwd', text)
-        self.assertIn('no `--cwd` or session-resume option', text)
+        self.assertIn('wrapper has no `--cwd` option', text)
+        self.assertIn('explicit `--session-id ID`', text)
+        self.assertIn('`final_reason`', text)
+        self.assertIn('`failure_layer`', text)
         self.assertIn('Read the selected `scripts/deepseek_worker.py --help` and implementation', text)
         self.assertIn('Resolve the wrapper from the active checkout first', text)
         self.assertIn('Send the task as UTF-8 on stdin', text)

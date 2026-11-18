@@ -28,13 +28,21 @@ Use Luna Explorer when code structure, behavior, or a reproduction is unclear an
 
 ## DeepSeek execution and fallback
 
-Before dispatch, state the task contract, exclusive write scope, cwd/worktree, requested permission, and independent acceptance checks. Send only relevant non-sensitive context. Keep the active repository or selected worktree as the wrapper cwd; the wrapper has no `--cwd` or session-resume option. Confirm the actual cwd and Git root. The DSH session or tool cwd can differ from the intended file target, so verify both.
+Before dispatch, state the task contract, exclusive write scope, cwd/worktree, requested permission, and independent acceptance checks. Send only relevant non-sensitive context. Keep the active repository or selected worktree as the wrapper cwd; the wrapper has no `--cwd` option. Confirm the actual cwd and Git root. The DSH session or tool cwd can differ from the intended file target, so verify both.
 
 ### Existing wrapper interface
 
-Read the selected `scripts/deepseek_worker.py --help` and implementation before building a command. Resolve the wrapper from the active checkout first, then `<CODEX_HOME>/scripts/deepseek_worker.py` (default `<USERPROFILE>/.codex/scripts/deepseek_worker.py`); resolve it to an absolute path before changing cwd. A fixture or disposable workspace uses its own cwd. Send the task as UTF-8 on stdin; never interpolate task text into shell source. The supported flags are `--permission-mode read-only|workspace-write`, `--timeout-seconds 1..600`, `--max-stdout-bytes`, and `--max-stderr-bytes`. Read-only is the default. Select workspace-write only for an explicitly authorized implementation contract with exclusive ownership.
+When the optional `deepseek-async` MCP server is available and a task may outlive one tool call, prefer `deepseek_task_start`, then track by task ID with status/wait/list and fetch the result after it settles. Supply only explicit repository-relative input paths. The bridge copies those paths into its job workspace, excludes sensitive/config/cache paths, and returns a patch artifact that root must inspect and apply explicitly. A requested DSH permission mode remains a request, not verified effective permission. MCP absence or a short task may use the synchronous wrapper below.
 
-The wrapper starts `dsh --profile headless --json -` in the caller's current directory and emits one JSON report. Record the wrapper's exit code separately from the child's `exit_code`. `status=completed` and a final answer indicate session completion, not accepted implementation. The wrapper's `effective_permission_mode: null` and `permission_verification: unverified` are intentional: the wrapper report does not observe DSH's composed session permissions. On the tested DSH 0.2.1-rc.3, the public headless JSON stream does not include permission events, so a successful write or the requested `DSH_PERMISSION_MODE` alone cannot verify the active mode.
+Read the selected `scripts/deepseek_worker.py --help` and implementation before building a command. Resolve the wrapper from the active checkout first, then `<CODEX_HOME>/scripts/deepseek_worker.py` (default `<USERPROFILE>/.codex/scripts/deepseek_worker.py`); resolve it to an absolute path before changing cwd. A fixture or disposable workspace uses its own cwd. Send the task as UTF-8 on stdin; never interpolate task text into shell source. The supported flags are `--permission-mode read-only|workspace-write`, `--timeout-seconds 1..600`, `--session-id`, `--max-stdout-bytes`, and `--max-stderr-bytes`. Read-only is the default. Select workspace-write only for an explicitly authorized implementation contract with exclusive ownership.
+
+The wrapper starts `dsh --profile headless --json -` in the caller's current directory and emits one JSON report. An explicit `--session-id ID` adds DSH's `--session-id ID` to resume that persisted session; the continuation task is still sent on stdin. Record the wrapper's exit code separately from the child's `exit_code`. `status=completed` and a final answer indicate session completion, not accepted implementation. `final_reason` preserves a bounded categorical reason from DSH's final event. `failure_layer` distinguishes wrapper timeout/output/I/O, invalid event protocol, DSH failure and cleanup failure. A timeout imposed by the parent Codex runtime may terminate the wrapper before it emits a report; that case has no wrapper evidence and must be recorded as an outer-runtime interruption, not guessed to be a DSH/provider timeout. The wrapper's `effective_permission_mode: null` and `permission_verification: unverified` are intentional: the wrapper report does not observe DSH's composed session permissions. On the tested DSH 0.2.1-rc.3, the public headless JSON stream does not include permission events, so a successful write or the requested `DSH_PERMISSION_MODE` alone cannot verify the active mode.
+
+### Checkpoints and explicit resume
+
+For work likely to exceed one wrapper timeout, split it into checkpoints with a concrete output and acceptance check each. Prefer separate bounded work packets for independently verifiable slices; keep shared integration with root. The worker should report completed checkpoint IDs, changed paths and checks before starting another slice. Root reviews checkpoint evidence and the diff before granting the next write scope.
+
+After a wrapper timeout, use its session ID only when present, the child process tree has stopped, cleanup is clean, and root has inspected partial changes and restored exclusive ownership. Resume explicitly with `--session-id ID` and a narrow continuation prompt that asks DSH to inspect what is already done and complete only the remaining checkpoint. Do not automatically replay the original task or repeat side effects. If the session is unknown, cleanup is unresolved, or partial state cannot be assessed, hand off to root/Codex after reviewing the workspace. A session ID is not proof that DSH persisted resumable state.
 
 Keep permission evidence in distinct fields:
 
@@ -50,7 +58,8 @@ Classify failures separately:
 
 - **Provider availability:** a confirmed transient such as `server is busy` may receive at most one bounded retry when time remains, the worker has stopped, cleanup is clean, and no unsafe partial diff exists.
 - **Workspace or sandbox incompatibility:** a confirmed ACL/path failure is an execution constraint, not a model-quality failure. Do not retry the same known-incompatible workspace. In particular, the observed Windows `grantWrite(...D:\Web\adaptive-agent-orchestrator-kit)` failure must route to Codex fallback or a separately selected workspace whose write capability is already evidenced; a user-profile worktree is a candidate, not automatic infrastructure. Never disable sandbox restrictions.
-- **Unknown timeout, protocol failure, or runtime error:** treat as execution unavailable/unknown. Inspect partial changes and process cleanup; retry only if a bounded attempt is justified by new evidence. Do not bypass the wrapper to resume a session.
+- **Timeout:** distinguish `failure_layer=wrapper` with `status=timeout` from a missing wrapper report caused by the parent Codex runtime. Preserve any reported session ID; an explicit resume may be considered only under the checkpoint/resume gate above. Never blind-replay the original task.
+- **Protocol failure or runtime error:** treat as execution unavailable/unknown. Inspect partial changes and process cleanup; retry only if a bounded attempt is justified by new evidence.
 - **Acceptance failure after completed execution:** treat as implementation quality. Root reviews the diff and tests. If the same DSH session can safely accept one focused correction through the supported interface, request one; otherwise hand off to a Codex writer.
 
 When falling back, select an available writable Codex role by its actual configured model/effort, task capability, and permissions. Do not infer model family from a role name or assume root is Astra. Keep the same acceptance bar and pass only context needed to continue; do not repeat completed exploration. Preserve all model configuration.
@@ -77,3 +86,11 @@ Root checks the actual diff, including untracked files, confirms changed paths s
   "verification_owner": "codex"
 }
 ```
+# Shared HTTP task service
+
+For a task that must be visible to Codex and another MCP client, both clients must
+connect to the same running `deepseek_mcp_http.py` Streamable HTTP service. The
+stdio bridge creates a separate process manager and does not share live ownership.
+The HTTP service is a local pilot bound to loopback with one configured workspace;
+it has no authentication or public deployment support. Do not tunnel or expose it.
+Use ordinary text tool results when the host does not render the optional dashboard.

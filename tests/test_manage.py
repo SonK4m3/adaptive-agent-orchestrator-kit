@@ -26,8 +26,14 @@ class PackageInstallerTests(unittest.TestCase):
         role_root.mkdir(parents=True)
         (self.package / "scripts").mkdir()
         (self.package / "scripts" / "deepseek_worker.py").write_text("# test helper\n")
+        (self.package / "scripts" / "deepseek_jobs.py").write_text("# job helper\n")
+        (self.package / "scripts" / "deepseek_mcp.py").write_text("# MCP helper\n")
+        (self.package / "scripts" / "deepseek_mcp_http.py").write_text("# HTTP MCP helper\n")
         (self.package / "scripts" / "process_guard.py").write_text("# process helper\n")
-        (self.package / "distribution.json").write_text(json.dumps({"schema": 1, "include": ["skills", "profiles", "scripts", "distribution.json"], "directory_extensions": {"skills": [".md"], "profiles": [".toml"], "scripts": [".py"]}}))
+        (self.package / "mcp_apps").mkdir()
+        (self.package / "mcp_apps" / "deepseek_dashboard.html").write_text("<html></html>")
+        (self.package / "requirements-mcp-http.txt").write_text("mcp>=1.28,<2\n")
+        (self.package / "distribution.json").write_text(json.dumps({"schema": 1, "include": ["skills", "profiles", "scripts", "mcp_apps", "requirements-mcp-http.txt", "distribution.json"], "directory_extensions": {"skills": [".md"], "profiles": [".toml"], "scripts": [".py"], "mcp_apps": [".html"]}}))
         for profile in manage.PROFILES:
             profile_root = self.package / "profiles" / profile
             profile_root.mkdir(exist_ok=True)
@@ -139,6 +145,10 @@ class PackageInstallerTests(unittest.TestCase):
         manage.install(self._args(parts="roles", role="ao_deepseek_worker"))
         self.assertEqual([p.name for p in (self.target / "agents").glob("*.toml")], ["ao_deepseek_worker.toml"])
         self.assertTrue((self.target / "scripts/deepseek_worker.py").is_file())
+        self.assertTrue((self.target / "scripts/deepseek_jobs.py").is_file())
+        self.assertTrue((self.target / "scripts/deepseek_mcp.py").is_file())
+        self.assertTrue((self.target / "scripts/deepseek_mcp_http.py").is_file())
+        self.assertTrue((self.target / "mcp_apps/deepseek_dashboard.html").is_file())
         self.assertTrue((self.target / "scripts/process_guard.py").is_file())
         self.assertFalse((self.target / "config.toml").exists())
 

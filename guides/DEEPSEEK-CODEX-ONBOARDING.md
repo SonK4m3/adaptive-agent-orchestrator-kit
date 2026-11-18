@@ -134,6 +134,40 @@ have Codex check any claims against repository evidence. This proves the handoff
 for that session, not that every future task will be delegated or that a particular
 DeepSeek model was served.
 
+### Optional asynchronous MCP mode
+
+For tasks likely to outlive one Codex tool call, install the optional worker role and
+its helper scripts, then register `deepseek_mcp.py` as a project MCP server using the
+manual configuration example in [Installation details](INSTALLATION.md#optional-asynchronous-deepseek-mcp-bridge).
+The bridge returns a durable task ID immediately; Codex can check status, wait in
+short bounded intervals, and retrieve a result plus patch after completion. It
+stores job state and artifacts under `<CODEX_HOME>/deepseek-worker/jobs` and resumes
+only an explicitly requested DSH session. It does not apply changes to the source
+checkout. Root reviews and applies the patch, then verifies the integrated diff.
+
+Choose only relevant repository-relative input paths. The bridge omits common secret,
+Codex settings, dependency and build paths, but its task workspace is not an OS-level
+security sandbox. DSH's requested permission mode is not proof of effective DSH or
+filesystem permissions. If MCP is not installed/configured, use the synchronous
+wrapper flow above.
+
+### Long tasks, checkpoints and resume
+
+Split work that may exceed the wrapper's timeout into bounded checkpoints, each
+with a concrete output and acceptance check. Have Codex review each checkpoint's
+evidence and partial diff before allowing the next write slice. Keep dependent
+steps sequential and give each active path one writer.
+
+On wrapper timeout, use the JSON report's `session_id`, `failure_layer`, and
+`cleanup_errors` to decide the next step. The wrapper does not retry automatically.
+After the child process tree has stopped, cleanup is clean, and Codex has inspected
+partial changes, Codex may resume the persisted DSH session with `--session-id` and
+a narrow prompt describing only the unfinished checkpoint. Do not replay the
+original task or duplicate side effects. A reported ID is correlation evidence;
+DSH may no longer have that session persisted. If the report is absent, the parent
+Codex runtime may have interrupted the wrapper before it could report; treat that
+as an outer-runtime interruption unless logs show otherwise.
+
 The wrapper requests `read-only`, but reports effective DSH permissions as
 unverified. DSH's permission preset and the Codex agent's filesystem sandbox are
 separate controls; do not use a write task as a permission test. See the official
@@ -154,9 +188,13 @@ classified error to diagnose it, and keep the work with Codex if DSH is unavaila
 | Authentication error | Configure the official DeepSeek API key in DSH Models settings; test a short DSH prompt. |
 | DSH works in terminal but Codex cannot find it | Restart Codex, confirm it uses the same user/PATH, then start a new chat in the target repo. |
 | Role not listed | Run the kit's `python scripts/manage.py doctor --target <project>/.codex` and confirm the role files are in that exact target. Start a new Codex chat. |
-| Timeout/output limit | Reduce the delegated task/output or use an authorized Codex fallback; the wrapper does not retry automatically. |
+| Timeout/output limit | Split remaining work into checkpoints, inspect partial changes and cleanup, then consider an explicit session resume; otherwise use an authorized Codex fallback. The wrapper does not retry automatically. |
 | `read-only` appears in the report | This is the requested mode only. Effective permissions remain unverified in the wrapper report. |
 
 For kit installation details, conflict handling, updates, and rollback, see
 [Installation details](INSTALLATION.md). For the current behavior of DSH, prefer
 its linked official CLI and release references over copied command syntax.
+
+## Shared HTTP dashboard pilot
+
+For shared task IDs between Codex and a second MCP client, install the optional HTTP helper and dashboard described in [Installation details](INSTALLATION.md#shared-http-server-and-dashboard-pilot). Both clients must connect to one running Streamable HTTP server. The current version binds to loopback, pins one workspace, and has no authentication. It is not available to ChatGPT's remote MCP service; do not expose it through a tunnel. ChatGPT connection and actual dashboard rendering still require a separately secured HTTPS deployment and remain unverified here.

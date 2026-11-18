@@ -30,4 +30,6 @@ if case == 'timeout':
 else:
     operator = '-' if case == 'bad_implementation' else '+'
     Path('calc.py').write_text('def add(a, b):\n    return a ' + operator + ' b\n')
-    print(json.dumps({'type': 'final', 'text': 'Implemented add; tests pass. Tiếng Việt ✓'}), flush=True)
+    print(json.dumps({'type': 'final', 'sessionId': 'fake-' + case,
+                      'reason': {'kind': 'completed'},
+                      'text': 'Implemented add; tests pass. Tiếng Việt ✓'}), flush=True)

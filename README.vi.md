@@ -61,7 +61,7 @@ python3 scripts/register_project.py --project /path/to/project --skill both
 
 Mặc định cài vào `$CODEX_HOME` hoặc `~/.codex`. Dùng `--target PATH` để chọn Codex home khác. Chỉ cài một skill bằng `--skill astra-orchestrator` hoặc `--skill adaptive-agent-orchestrator`. Chỉ cài skill không cài role bằng `--parts skills`; chỉ cài role bằng `--parts roles`.
 
-Nếu chọn roles, installer cũng cài helper `scripts/deepseek_worker.py` và process guard. Role `ao_deepseek_worker` gọi `dsh --profile headless` đồng bộ; helper yêu cầu read-only nhưng không xác minh được quyền DSH thực tế, trả kết quả cuối và evidence ngắn gọn. Chỉ bật `workspace-write` khi root giao rõ ownership. Đây không phải native Codex model/MCP; prompt và file liên quan mà DeepSeek đọc sẽ rời máy để tới dịch vụ DeepSeek. Không giao secrets.
+Nếu chọn roles, installer cũng cài wrapper đồng bộ, MCP bridge bất đồng bộ, job store và process guard. Role `ao_deepseek_worker` ưu tiên các tool MCP khi server được cấu hình; nếu chưa có thì vẫn gọi `dsh --profile headless` đồng bộ. MCP trả task ID, trạng thái bền vững và patch trong workspace riêng; không tự áp patch vào repo gốc. Workspace riêng không phải OS sandbox, quyền DSH thực tế chưa được xác minh. Prompt và file đầu vào đã chọn sẽ được gửi tới dịch vụ DeepSeek; không giao secrets. Xem [hướng dẫn cài MCP tùy chọn](guides/INSTALLATION.md#optional-asynchronous-deepseek-mcp-bridge).
 
 Hướng dẫn DSH được lưu tại [DeepSeek Harness + Codex onboarding](guides/DEEPSEEK-CODEX-ONBOARDING.md), gồm cài `dsh` trong PATH, cấu hình credential riêng, smoke test one-shot có thể tính quota, cài kit vào project, kiểm tra lần giao việc đầu tiên và xử lý lỗi thường gặp.
 

@@ -1,0 +1,2 @@
+# Optional dependency for the shared Streamable HTTP MCP server.
+mcp>=1.28,<2
