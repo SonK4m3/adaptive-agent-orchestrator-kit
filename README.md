@@ -96,6 +96,9 @@ global settings. JEV is not required for any orchestration level. New-session ru
 loading still needs verification. The Skills CLI command requires this addition to be
 published; it is not a claim that a remote install was tested.
 
+For teammates who need to install and authenticate DSH before using the external
+worker, follow the [DeepSeek Harness + Codex onboarding guide](guides/DEEPSEEK-CODEX-ONBOARDING.md).
+
 ### Existing Codex-home installer
 
 Download and extract a release ZIP, or clone the kit repository after it has been published. Run setup from the extracted repository directory. Python 3.11 or newer is required; there are no third-party Python dependencies.
@@ -181,7 +184,7 @@ By default, the kit installs into the Codex home, not into a target project:
     └── install.json
 ```
 
-`<CODEX_HOME>` is `$CODEX_HOME` when configured, otherwise `~/.codex`. `--target PATH` overrides it. The receipt tracks only components managed by this installer; unrelated files and Codex settings are left alone. The optional `ao_deepseek_worker` role delegates one bounded task to an installed `dsh` CLI; it defaults to read-only and returns only the final answer plus run evidence. Select `--parts roles` (or all) to install the role and helper scripts. DeepSeek sees the task and any repository context it reads, so do not delegate secrets. This is a synchronous CLI handoff, not a native Codex model or MCP server.
+`<CODEX_HOME>` is `$CODEX_HOME` when configured, otherwise `~/.codex`. `--target PATH` overrides it. The receipt tracks only components managed by this installer; unrelated files and Codex settings are left alone. The optional `ao_deepseek_worker` role delegates one bounded task to an installed `dsh` CLI; it requests read-only and returns only the final answer plus run evidence. Select `--parts roles` (or all) to install the role and helper scripts. DeepSeek sees the task and any repository context it reads, so do not delegate secrets. This is a synchronous CLI handoff, not a native Codex model or MCP server. See the [team onboarding guide](guides/DEEPSEEK-CODEX-ONBOARDING.md) for DSH installation, credentials, smoke checks and Codex setup.
 
 ## Use the skill
 

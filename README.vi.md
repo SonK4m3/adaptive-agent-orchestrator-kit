@@ -31,6 +31,8 @@ Hoặc gửi Codex toàn bộ [skill setup](skills/adaptive-orchestrator-setup/S
 
 Sau setup, mở chat Codex mới tại project và dùng `$adaptive-agent-orchestrator` hoặc `$astra-orchestrator`. Kiểm tra file không thay thế bằng chứng runtime discovery/dispatch.
 
+Nếu teammate chưa cài DeepSeek Harness, xem [hướng dẫn onboarding DSH + Codex](guides/DEEPSEEK-CODEX-ONBOARDING.md): cài Desktop/CLI, cấu hình API key, test `dsh`, rồi cài role/helper vào project.
+
 ### Installer Codex-home hiện có
 
 Setup tự check stable release khi bắt đầu, báo link release notes và hỏi riêng trước khi tải/chạy (mặc định No). Check lỗi thì cảnh báo và tiếp tục bản local; bỏ qua bằng `.\setup.ps1 -Offline` hoặc `sh ./setup.sh --offline`. Check/update chủ động: `.\update.ps1 -CheckOnly`, `.\update.ps1`, hoặc `sh ./update.sh --check`, `sh ./update.sh`. Lệnh chủ động lỗi trả exit code khác 0. Đây là so sánh VERSION của bộ source, không phải phiên bản đã cài ở từng project.
@@ -59,7 +61,9 @@ python3 scripts/register_project.py --project /path/to/project --skill both
 
 Mặc định cài vào `$CODEX_HOME` hoặc `~/.codex`. Dùng `--target PATH` để chọn Codex home khác. Chỉ cài một skill bằng `--skill astra-orchestrator` hoặc `--skill adaptive-agent-orchestrator`. Chỉ cài skill không cài role bằng `--parts skills`; chỉ cài role bằng `--parts roles`.
 
-Nếu chọn roles, installer cũng cài helper `scripts/deepseek_worker.py` và process guard. Role `ao_deepseek_worker` gọi `dsh --profile headless` đồng bộ; mặc định read-only, trả kết quả cuối và evidence ngắn gọn. Chỉ bật `workspace-write` khi root giao rõ ownership. Đây không phải native Codex model/MCP; prompt và file liên quan mà DeepSeek đọc sẽ rời máy để tới dịch vụ DeepSeek. Không giao secrets.
+Nếu chọn roles, installer cũng cài helper `scripts/deepseek_worker.py` và process guard. Role `ao_deepseek_worker` gọi `dsh --profile headless` đồng bộ; helper yêu cầu read-only nhưng không xác minh được quyền DSH thực tế, trả kết quả cuối và evidence ngắn gọn. Chỉ bật `workspace-write` khi root giao rõ ownership. Đây không phải native Codex model/MCP; prompt và file liên quan mà DeepSeek đọc sẽ rời máy để tới dịch vụ DeepSeek. Không giao secrets.
+
+Hướng dẫn DSH được lưu tại [DeepSeek Harness + Codex onboarding](guides/DEEPSEEK-CODEX-ONBOARDING.md), gồm cài `dsh` trong PATH, cấu hình credential riêng, smoke test one-shot có thể tính quota, cài kit vào project, kiểm tra lần giao việc đầu tiên và xử lý lỗi thường gặp.
 
 Installer không sửa `config.toml`. Nếu đích đã có nội dung khác, installer dừng an toàn; chỉ thay khi truyền `--replace`, và bản cũ được giữ backup trong `.adaptive-agent-orchestrator-backups/`. Mở phiên Codex mới sau khi cài để runtime nhận skill/role.
 
