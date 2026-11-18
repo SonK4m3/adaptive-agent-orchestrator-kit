@@ -34,7 +34,17 @@ Before dispatch, state the task contract, exclusive write scope, cwd/worktree, r
 
 Read the selected `scripts/deepseek_worker.py --help` and implementation before building a command. Resolve the wrapper from the active checkout first, then `<CODEX_HOME>/scripts/deepseek_worker.py` (default `<USERPROFILE>/.codex/scripts/deepseek_worker.py`); resolve it to an absolute path before changing cwd. A fixture or disposable workspace uses its own cwd. Send the task as UTF-8 on stdin; never interpolate task text into shell source. The supported flags are `--permission-mode read-only|workspace-write`, `--timeout-seconds 1..600`, `--max-stdout-bytes`, and `--max-stderr-bytes`. Read-only is the default. Select workspace-write only for an explicitly authorized implementation contract with exclusive ownership.
 
-The wrapper starts `dsh --profile headless --json -` in the caller's current directory and emits one JSON report. Record the wrapper's exit code separately from the child's `exit_code`. `status=completed` and a final answer indicate session completion, not accepted implementation. Keep requested permission separate from `effective_permission_mode=null` and `permission_verification=unverified`; the wrapper cannot prove DSH enforced its requested mode. Session IDs are correlation evidence, not proof of model identity or isolation. Do not forward raw stderr or reasoning.
+The wrapper starts `dsh --profile headless --json -` in the caller's current directory and emits one JSON report. Record the wrapper's exit code separately from the child's `exit_code`. `status=completed` and a final answer indicate session completion, not accepted implementation. The wrapper's `effective_permission_mode: null` and `permission_verification: unverified` are intentional: the wrapper report does not observe DSH's composed session permissions. On the tested DSH 0.2.1-rc.3, the public headless JSON stream does not include permission events, so a successful write or the requested `DSH_PERMISSION_MODE` alone cannot verify the active mode.
+
+Keep permission evidence in distinct fields:
+
+- `requested_permission_mode`: the wrapper argument supplied to the child.
+- `session_permission_preset`: `permission/preset` from independently inspected session evidence, when available.
+- `effective_sandbox_mode`: `sandbox/mode` from that session evidence, when available.
+- `approval_policy`: `approval/policy` from that session evidence, when available.
+- `filesystem_enforcement`: `verified` only after a separate, bounded negative-control operation confirms an out-of-scope write is denied; otherwise `unverified`.
+
+Session permission events confirm the mode recorded for that session, not that every OS-level restriction worked. Do not make the wrapper depend on a private, version-specific session-log format without a stable DSH interface. A successful write confirms positive write capability only. Session IDs are correlation evidence, not proof of model identity or filesystem isolation. Do not forward raw stderr or reasoning.
 
 Classify failures separately:
 
@@ -49,7 +59,7 @@ Before any retry or writer handoff, confirm the prior worker/process tree has st
 
 ## Independent acceptance
 
-Root checks the actual diff, including untracked files, confirms changed paths stay within scope, and runs the requested acceptance checks independently. A completed wrapper status or worker claim does not establish correctness. Report requested and effective permissions separately; until independently verified, retain `effective_permission_mode: null` and `permission_verification: unverified`. Record model pins separately from runtime-confirmed model identity.
+Root checks the actual diff, including untracked files, confirms changed paths stay within scope, and runs the requested acceptance checks independently. A completed wrapper status or worker claim does not establish correctness. Report requested permission, session-recorded preset/sandbox/approval, and filesystem enforcement separately. If the wrapper is the only evidence, retain `effective_permission_mode: null` and `permission_verification: unverified`; if session events are independently available, report their exact values as session evidence without claiming OS enforcement. Record model pins separately from runtime-confirmed model identity.
 
 ## Routing contract
 

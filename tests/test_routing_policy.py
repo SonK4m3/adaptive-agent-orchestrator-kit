@@ -109,9 +109,21 @@ class RoutingPolicyTests(unittest.TestCase):
         self.assertIn('Send the task as UTF-8 on stdin', text)
         self.assertIn('dsh --profile headless --json -', text)
         self.assertIn("separately from the child's `exit_code`", text)
-        self.assertIn('requested permission separate from `effective_permission_mode=null`', text)
+        self.assertIn('The wrapper\'s `effective_permission_mode: null` and `permission_verification: unverified` are intentional', text)
         self.assertIn('effective_permission_mode: null', text)
         self.assertIn('Record model pins separately from runtime-confirmed model identity', text)
+
+    def test_permission_request_session_mode_and_enforcement_are_separate(self):
+        text = policy_text()
+        for field in ('requested_permission_mode', 'session_permission_preset',
+                      'effective_sandbox_mode', 'approval_policy',
+                      'filesystem_enforcement'):
+            self.assertIn(f'`{field}`', text)
+        self.assertIn('public headless JSON stream does not include permission events', text)
+        self.assertIn('A successful write confirms positive write capability only', text)
+        self.assertIn('Session permission events confirm the mode recorded for that session, not that every OS-level restriction worked', text)
+        self.assertIn('Do not make the wrapper depend on a private, version-specific session-log format', text)
+        self.assertIn('retain `effective_permission_mode: null` and `permission_verification: unverified`', text)
 
     def test_fallback_uses_existing_model_pins_without_editing_them(self):
         text = policy_text()
