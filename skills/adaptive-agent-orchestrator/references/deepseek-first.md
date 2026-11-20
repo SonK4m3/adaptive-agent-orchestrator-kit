@@ -70,6 +70,7 @@ Before any retry or writer handoff, confirm the prior worker/process tree has st
 
 Root checks the actual diff, including untracked files, confirms changed paths stay within scope, and runs the requested acceptance checks independently. A completed wrapper status or worker claim does not establish correctness. Report requested permission, session-recorded preset/sandbox/approval, and filesystem enforcement separately. If the wrapper is the only evidence, retain `effective_permission_mode: null` and `permission_verification: unverified`; if session events are independently available, report their exact values as session evidence without claiming OS enforcement. Record model pins separately from runtime-confirmed model identity.
 
+
 ## Routing contract
 
 ```json

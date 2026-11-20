@@ -100,6 +100,20 @@ class RoutingPolicyTests(unittest.TestCase):
         self.assertIn('runs the requested acceptance checks independently', policy_text())
         self.assertIn('A completed wrapper status or worker claim does not establish correctness', policy_text())
 
+    def test_review_fanout_is_scoped_read_only_and_bounded(self):
+        for alias in ALIASES:
+            pattern = (ROOT / 'skills' / alias / 'references/patterns.md').read_text(encoding='utf-8')
+            entry = (ROOT / 'skills' / alias / 'SKILL.md').read_text(encoding='utf-8')
+            self.assertEqual(pattern.count('```mermaid'), 11)
+            self.assertIn('## 11. Optional review fan-out', pattern)
+            for lens in ('UX', 'Simplicity', 'Edge cases', 'Security'):
+                self.assertIn(lens, pattern)
+            self.assertIn('cannot edit files', pattern)
+            self.assertIn('two rounds by default', pattern)
+            self.assertIn('fresh reviewer instances', pattern)
+            self.assertIn('never\nclaim four approvals', pattern)
+            self.assertIn('do not make it the default', entry)
+
     def test_wrapper_cwd_and_permission_limits_are_documented(self):
         text = policy_text()
         self.assertIn('wrapper cwd', text)

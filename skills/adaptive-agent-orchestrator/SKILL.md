@@ -68,7 +68,7 @@ When tools or a requested model are unavailable, report the limitation and use a
 
 Map every requested requirement to evidence or an explicit unresolved item. Passing unit tests is not evidence for untested UI, service integration, long-running behavior, or deployment. Verify at the boundary actually affected: original reproduction, contract, rendered interaction, or live workflow as appropriate. Record pre-existing failures separately.
 
-For material security, auth, migration, concurrency, or cross-subsystem regression risk, use an independent reviewer when available and useful. Give the reviewer requirements, artifacts and tests; request its own assessment before showing the implementer's confidence or optional Jev scores. A review complements executable checks.
+For material security, auth, migration, concurrency, or cross-subsystem regression risk, use an independent reviewer when available and useful. Give the reviewer requirements, artifacts and tests; request its own assessment before showing the implementer's confidence or optional Jev scores. For large changes with several distinct review risks, use the optional [bounded review fan-out](references/patterns.md#11-optional-review-fan-out--distinct-read-only-lenses); do not make it the default. A review complements executable checks.
 
 Resolve material findings, verify fixes, then stop expanding checks once the affected acceptance criteria and required project gates pass. A deadline never turns failed or unrun checks into a pass. If completion is infeasible, report exactly what is complete, unverified, and blocked; seek an explicit scope change rather than silently dropping requirements.
 

@@ -9,7 +9,7 @@ Diagrams in this repository are reference patterns, not executable workflows. Ac
 ## What is included
 
 - Two self-contained orchestration entrypoints: `adaptive-agent-orchestrator` and `astra-orchestrator`, plus the installable `adaptive-orchestrator-setup` skill.
-- Ten Mermaid diagrams for routing, root-only work, focused delegation, parallel slices, staged high-risk work, debugging, deadlines, economy, scope changes, and optional Jev-assisted routing.
+- Eleven Mermaid diagrams, including optional bounded review fan-out for large or materially risky changes.
 - Nine optional, namespaced agent definitions, including `ao_deepseek_worker` for a bounded external DSH handoff.
 - Conditional DeepSeek-first coding policy with root-direct handling for trivial or unsuitable delegation, model-neutral Codex fallback, exclusive writer handoff, and independent acceptance.
 - Two resource profiles: `adaptive` (capacity 4) and `adaptive-max-2-subagents` (capacity 2). Both retain adaptive topology and the existing role/model bindings.

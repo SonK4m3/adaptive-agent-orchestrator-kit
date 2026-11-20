@@ -37,7 +37,9 @@ for skill in skills:
         for target in re.findall(r'\]\(([^)]+)\)', text):
             if '://' not in target and not target.startswith('#'):
                 assert (path.parent / target.split('#')[0]).exists(), (path, target)
-    assert (skill / 'references/patterns.md').read_text(encoding='utf-8').count('```mermaid') == 10
+    patterns = (skill / 'references/patterns.md').read_text(encoding='utf-8')
+    assert patterns.count('```mermaid') == 11
+    assert '## 11. Optional review fan-out' in patterns
 for folder in ('assets', 'references'):
     first = {p.relative_to(skills[0]): p.read_bytes() for p in (skills[0] / folder).rglob('*') if p.is_file()}
     second = {p.relative_to(skills[1]): p.read_bytes() for p in (skills[1] / folder).rglob('*') if p.is_file()}
@@ -70,4 +72,4 @@ for path in roles:
     assert role['model'] and role['model_reasoning_effort']
     assert role['sandbox_mode'] in ('read-only', 'workspace-write')
     assert role['developer_instructions'].strip()
-print('PASS: skill links, alias resources, 10 diagrams per alias, 9 parsed role TOMLs')
+print('PASS: skill links, alias resources, 11 diagrams per alias, 9 parsed role TOMLs')

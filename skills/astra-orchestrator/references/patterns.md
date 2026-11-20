@@ -1,4 +1,4 @@
-# Coding orchestration patterns — 10 diagrams
+# Coding orchestration patterns — 11 diagrams
 
 For coding execution, apply the [DeepSeek-first routing policy](deepseek-first.md) first. The Codex roles, capability examples and topology diagrams below describe planning or Codex fallback; they do not override the coding route or existing model pins.
 
@@ -158,3 +158,43 @@ flowchart TD
   D --> E[Execution and acceptance evidence]
   F[Optional upstream Jev model proxy] -. Per-call model and effort .-> D
 ```
+
+## 11. Optional review fan-out — distinct read-only lenses
+
+Use after a large or materially risky change when separate UX, simplicity, edge-case,
+and security reviews can each inspect the same stable diff. Skip inapplicable lenses
+with a reason; this pattern is not a default for routine changes. Reuse the existing
+reviewer capability with task-specific contracts instead of adding permanent roles.
+
+```mermaid
+flowchart TD
+  A[Root: stable diff and acceptance criteria] --> B{Large or material risk?}
+  B -- No --> C[Usual targeted checks]
+  B -- Yes --> D[Assign four read-only review lenses]
+  D --> U[UX: user-facing behavior]
+  D --> S[Simplicity: needless complexity]
+  D --> E[Edge cases: boundaries and failures]
+  D --> Q[Security: trust boundaries and invariants]
+  U --> F[Root reconciles findings with evidence]
+  S --> F
+  E --> F
+  Q --> F
+  F --> G{Material findings?}
+  G -- No: all lenses approve or explain N/A --> H[Automated checks and Root acceptance]
+  G -- Yes --> I[One writer fixes accepted findings]
+  I --> J{Review rounds used < 2?}
+  J -- Yes --> K[Fresh reviewers inspect updated diff]
+  K --> F
+  J -- No --> L[Report unresolved findings and coverage]
+```
+
+Review contract: all four reviewers inspect the same diff and relevant acceptance
+criteria, cannot edit files, and return findings with severity, file/line, evidence,
+and affected criterion. Root records each finding as fixed, rejected with evidence,
+or unresolved. After any accepted fix, dispatch fresh reviewer instances for the
+next round when the runtime supports it; otherwise disclose that the review was not
+fresh. Stop after two rounds by default. Reviewer approval covers only its assigned
+lens and does not replace tests, security tools, or Root's final acceptance. If the
+runtime cannot provide the required parallel reviewers within its cap or budget,
+use a smaller/sequential review and report the missing independence or lens; never
+claim four approvals that were not observed.
